@@ -3,11 +3,9 @@ import i18next from 'i18next';
 import {registry} from '@jahia/ui-extender';
 import {McpChatPanel} from './McpChat/McpChatPanel';
 
-export default async function () {
-    await i18next.loadNamespaces('jahia-mcp-chat');
-
-    registry.addOrReplace('adminRoute', 'jahia-mcp-chat-panel', {
-        targets: ['nav-root-top:99'],
+function register() {
+    registry.add('adminRoute', 'jahia-mcp-chat', {
+        targets: ['jcontent'],
         label: 'jahia-mcp-chat:panel.title',
         icon: window.jahia?.moonstone?.toIconComponent(
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">' +
@@ -16,7 +14,17 @@ export default async function () {
             '</svg>'
         ),
         isSelectable: true,
-        requiredPermission: 'administrationAccess',
         render: () => <McpChatPanel />
     });
+}
+
+export default function () {
+    registry.add('callback', 'jahia-mcp-chat', {
+        targets: ['jahiaApp-init:50'],
+        callback: async () => {
+            await i18next.loadNamespaces('jahia-mcp-chat');
+            register();
+        }
+    });
+    console.info('%c Jahia MCP Chat is activated', 'color: #3c8cba');
 }
