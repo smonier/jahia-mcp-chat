@@ -1,0 +1,582 @@
+/* Panel layout */
+.panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #1a1a2e;
+    color: #e8eaf0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    overflow: hidden;
+}
+
+/* Header */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: #16213e;
+    border-bottom: 1px solid #0f3460;
+    flex-shrink: 0;
+}
+
+.headerTitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #a8c7fa;
+}
+
+.headerIcon {
+    font-size: 16px;
+}
+
+.headerActions {
+    display: flex;
+    gap: 4px;
+}
+
+/* Model bar */
+.modelBar {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: #16213e;
+    border-bottom: 1px solid #0f3460;
+    flex-shrink: 0;
+}
+
+.modelSelector {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.select {
+    flex: 1;
+    background: #0f3460;
+    color: #e8eaf0;
+    border: 1px solid #2a4a7f;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
+}
+
+.select:focus {
+    border-color: #a8c7fa;
+}
+
+/* Messages area */
+.messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scrollbar-width: thin;
+    scrollbar-color: #0f3460 transparent;
+}
+
+.messages::-webkit-scrollbar {
+    width: 4px;
+}
+
+.messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.messages::-webkit-scrollbar-thumb {
+    background: #0f3460;
+    border-radius: 2px;
+}
+
+/* Empty state */
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 32px 16px;
+    text-align: center;
+    opacity: 0.7;
+}
+
+.emptyIcon {
+    font-size: 40px;
+    margin-bottom: 12px;
+}
+
+.emptyText {
+    color: #8899bb;
+    margin: 0 0 8px;
+    line-height: 1.5;
+}
+
+.emptyHint {
+    color: #8899bb;
+    font-size: 12px;
+    margin: 0;
+}
+
+.linkButton {
+    background: none;
+    border: none;
+    color: #a8c7fa;
+    cursor: pointer;
+    padding: 0 4px;
+    font-size: 12px;
+    text-decoration: underline;
+}
+
+/* Messages */
+.message {
+    display: flex;
+    gap: 8px;
+    animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.messageUser {
+    flex-direction: row-reverse;
+}
+
+.messageAvatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #0f3460;
+    color: #a8c7fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.messageBubble {
+    max-width: 85%;
+    min-width: 40px;
+}
+
+.messageUser .messageBubble {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.messageText {
+    background: #16213e;
+    border: 1px solid #1e3a5f;
+    border-radius: 12px 12px 12px 2px;
+    padding: 10px 13px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #d8e0f0;
+}
+
+.messageUser .messageText {
+    background: #0f3460;
+    border-color: #1a4f8a;
+    border-radius: 12px 12px 2px 12px;
+    color: #e8f0fe;
+}
+
+/* Typing cursor */
+.cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: #a8c7fa;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: blink 0.8s step-end infinite;
+}
+
+@keyframes blink {
+    50% { opacity: 0; }
+}
+
+/* Typing dots */
+.typingDots {
+    display: flex;
+    gap: 4px;
+    padding: 12px 14px;
+    background: #16213e;
+    border: 1px solid #1e3a5f;
+    border-radius: 12px 12px 12px 2px;
+    width: fit-content;
+}
+
+.typingDots span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #8899bb;
+    animation: bounce 1.2s ease-in-out infinite;
+}
+
+.typingDots span:nth-child(2) { animation-delay: 0.2s; }
+.typingDots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-5px); }
+}
+
+/* Tool call blocks */
+.toolCall {
+    margin-top: 6px;
+    background: #0d1b35;
+    border: 1px solid #1a3a6a;
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 11.5px;
+}
+
+.toolCallHeader {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: #12285a;
+    border-bottom: 1px solid #1a3a6a;
+}
+
+.toolCallIcon {
+    color: #7aa2f7;
+}
+
+.toolCallName {
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    color: #7aa2f7;
+    font-size: 11px;
+}
+
+.toolCallRunning {
+    margin-left: auto;
+    color: #e8b86d;
+    font-style: italic;
+    font-size: 10px;
+}
+
+.toolCallDone {
+    margin-left: auto;
+    color: #73daca;
+    font-size: 10px;
+}
+
+.toolCallCode,
+.toolCallResult {
+    margin: 0;
+    padding: 8px 10px;
+    overflow-x: auto;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 10.5px;
+    color: #a9b1d6;
+    line-height: 1.4;
+    white-space: pre;
+}
+
+.toolCallResult {
+    border-top: 1px solid #1a3a6a;
+    color: #73daca;
+}
+
+/* Input area */
+.inputArea {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid #0f3460;
+    background: #16213e;
+    flex-shrink: 0;
+    align-items: flex-end;
+}
+
+.textarea {
+    flex: 1;
+    background: #0f1a35;
+    color: #e8eaf0;
+    border: 1px solid #2a4a7f;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+    transition: border-color 0.15s;
+}
+
+.textarea:focus {
+    border-color: #a8c7fa;
+}
+
+.textarea:disabled {
+    opacity: 0.5;
+}
+
+.textarea::placeholder {
+    color: #4a5a7a;
+}
+
+.sendButton {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    background: #a8c7fa;
+    color: #0d1b35;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.sendButton:hover:not(:disabled) {
+    background: #c2d8ff;
+    transform: scale(1.05);
+}
+
+.sendButton:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.sendButtonStop {
+    background: #f7768e;
+    color: #fff;
+}
+
+.sendButtonStop:hover:not(:disabled) {
+    background: #ff8fa3;
+}
+
+/* Icon buttons */
+.iconButton {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #8899bb;
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+
+.iconButton:hover {
+    background: #0f3460;
+    color: #a8c7fa;
+}
+
+.iconButtonActive {
+    background: #0f3460;
+    color: #a8c7fa;
+    border-color: #2a4a7f;
+}
+
+/* Settings panel */
+.settingsPanel {
+    background: #16213e;
+    border-bottom: 1px solid #0f3460;
+    display: flex;
+    flex-direction: column;
+    max-height: 55vh;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.settingsHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid #0f3460;
+}
+
+.settingsTitle {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #a8c7fa;
+}
+
+.settingsBody {
+    overflow-y: auto;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.settingsSection {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.settingsSectionTitle {
+    margin: 0 0 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #5a7aaa;
+}
+
+.label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #8899bb;
+}
+
+.input {
+    background: #0f1a35;
+    color: #e8eaf0;
+    border: 1px solid #2a4a7f;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: inherit;
+}
+
+.input:focus {
+    border-color: #a8c7fa;
+}
+
+.input::placeholder {
+    color: #4a5a7a;
+}
+
+/* Skills manager */
+.skillsManager {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.skillsActions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.uploadButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #0f3460;
+    color: #a8c7fa;
+    border: 1px solid #2a4a7f;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    width: fit-content;
+}
+
+.uploadButton:hover {
+    background: #1a4a80;
+}
+
+.githubRow {
+    display: flex;
+    gap: 6px;
+}
+
+.githubRow .input {
+    flex: 1;
+}
+
+.buttonSecondary {
+    background: #0f3460;
+    color: #a8c7fa;
+    border: 1px solid #2a4a7f;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+
+.buttonSecondary:hover:not(:disabled) {
+    background: #1a4a80;
+}
+
+.buttonSecondary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.errorText {
+    margin: 0;
+    font-size: 11px;
+    color: #f7768e;
+}
+
+.skillChips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.skillChip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #0f3460;
+    border: 1px solid #2a4a7f;
+    border-radius: 12px;
+    padding: 3px 8px 3px 10px;
+    font-size: 11px;
+    color: #a8c7fa;
+}
+
+.skillChipName {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.skillChipRemove {
+    background: none;
+    border: none;
+    color: #5a7aaa;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+    line-height: 1;
+    transition: color 0.15s;
+}
+
+.skillChipRemove:hover {
+    color: #f7768e;
+}
