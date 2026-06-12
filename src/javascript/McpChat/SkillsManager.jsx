@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 import {useTranslation} from 'react-i18next';
-import styles from './McpChat.module.css';
+import styles from './SkillsManager.module.css';
 
 export function SkillsManager({skills, onAdd, onRemove}) {
     const {t} = useTranslation('jahia-mcp-chat');
@@ -9,18 +9,15 @@ export function SkillsManager({skills, onAdd, onRemove}) {
     const [error, setError] = useState('');
 
     const handleFileUpload = e => {
-        const files = Array.from(e.target.files);
-        files.forEach(file => {
+        Array.from(e.target.files).forEach(file => {
             const reader = new FileReader();
-            reader.onload = ev => {
-                onAdd({name: file.name, content: ev.target.result, source: 'upload'});
-            };
+            reader.onload = ev => onAdd({name: file.name, content: ev.target.result, source: 'upload'});
             reader.readAsText(file);
         });
         e.target.value = '';
     };
 
-    const handleGithubPull = async () => {
+    const handlePull = async () => {
         if (!githubUrl.trim()) return;
         setLoading(true);
         setError('');
@@ -28,8 +25,7 @@ export function SkillsManager({skills, onAdd, onRemove}) {
             const res = await fetch(githubUrl.trim());
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const content = await res.text();
-            const name = githubUrl.split('/').pop() || 'skill.md';
-            onAdd({name, content, source: 'github', url: githubUrl.trim()});
+            onAdd({name: githubUrl.split('/').pop() || 'skill.md', content, source: 'github', url: githubUrl.trim()});
             setGithubUrl('');
         } catch (err) {
             setError(err.message);
@@ -39,20 +35,16 @@ export function SkillsManager({skills, onAdd, onRemove}) {
     };
 
     return (
-        <div className={styles.skillsManager}>
-            <h4 className={styles.settingsSectionTitle}>{t('skills.title')}</h4>
+        <div className={styles.root}>
+            <h4 className={styles.title}>{t('skills.title')}</h4>
 
-            <div className={styles.skillsActions}>
-                <label className={styles.uploadButton}>
+            <div className={styles.actions}>
+                <label className={styles.uploadBtn}>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                        <path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/>
+                    </svg>
                     {t('skills.upload')}
-                    <input
-                        type="file"
-                        accept=".md,.txt"
-                        multiple
-                        onChange={handleFileUpload}
-                        style={{display: 'none'}}
-                        aria-label={t('skills.upload')}
-                    />
+                    <input type="file" accept=".md,.txt" multiple onChange={handleFileUpload} style={{display: 'none'}} />
                 </label>
 
                 <div className={styles.githubRow}>
@@ -62,34 +54,22 @@ export function SkillsManager({skills, onAdd, onRemove}) {
                         value={githubUrl}
                         onChange={e => setGithubUrl(e.target.value)}
                         placeholder={t('skills.githubPlaceholder')}
-                        aria-label={t('skills.githubLabel')}
-                        onKeyDown={e => e.key === 'Enter' && handleGithubPull()}
+                        onKeyDown={e => e.key === 'Enter' && handlePull()}
                     />
-                    <button
-                        className={styles.buttonSecondary}
-                        onClick={handleGithubPull}
-                        disabled={loading || !githubUrl.trim()}
-                        aria-label={t('skills.pull')}
-                    >
+                    <button className={styles.pullBtn} onClick={handlePull} disabled={loading || !githubUrl.trim()}>
                         {loading ? '...' : t('skills.pull')}
                     </button>
                 </div>
-                {error && <p className={styles.errorText}>{error}</p>}
+                {error && <p className={styles.error}>{error}</p>}
             </div>
 
             {skills.length > 0 && (
-                <div className={styles.skillChips}>
+                <div className={styles.chips}>
                     {skills.map(s => (
-                        <div key={s.name} className={styles.skillChip}>
-                            <span className={styles.skillChipName} title={s.url || s.name}>{s.name}</span>
-                            <button
-                                className={styles.skillChipRemove}
-                                onClick={() => onRemove(s.name)}
-                                aria-label={t('skills.remove', {name: s.name})}
-                            >
-                                ×
-                            </button>
-                        </div>
+                        <span key={s.name} className={styles.chip}>
+                            <span className={styles.chipName} title={s.url || s.name}>{s.name}</span>
+                            <button className={styles.chipRemove} onClick={() => onRemove(s.name)} aria-label={t('skills.remove', {name: s.name})}>×</button>
+                        </span>
                     ))}
                 </div>
             )}

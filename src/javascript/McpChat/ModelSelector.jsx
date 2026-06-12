@@ -1,6 +1,6 @@
 import React from 'react';
 import {useTranslation} from 'react-i18next';
-import styles from './McpChat.module.css';
+import styles from './ModelSelector.module.css';
 
 const ANTHROPIC_MODELS = [
     {id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6'},
@@ -20,7 +20,8 @@ export function ModelSelector({provider, selectedModel, onProviderChange, onMode
     const models = provider === 'openai' ? OPENAI_MODELS : ANTHROPIC_MODELS;
 
     return (
-        <div className={styles.modelSelector}>
+        <div className={styles.root}>
+            <span className={styles.label}>{t('modelSelector.label')}</span>
             <select
                 className={styles.select}
                 value={provider}
@@ -31,7 +32,7 @@ export function ModelSelector({provider, selectedModel, onProviderChange, onMode
                 <option value="openai">OpenAI</option>
             </select>
             <select
-                className={styles.select}
+                className={styles.select + ' ' + styles.modelSelect}
                 value={selectedModel}
                 onChange={e => onModelChange(e.target.value)}
                 aria-label={t('modelSelector.model')}

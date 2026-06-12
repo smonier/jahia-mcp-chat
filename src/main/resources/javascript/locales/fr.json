@@ -1,14 +1,19 @@
 {
+    "action": {
+        "open": "MCP Chat"
+    },
     "panel": {
         "title": "Jahia MCP Chat",
         "empty": "Posez-moi des questions sur votre site Jahia. Je peux gérer le contenu, les pages et plus encore.",
         "configHint": "Renseignez votre clé API dans les ",
         "configLink": "paramètres",
         "clear": "Effacer la conversation",
+        "close": "Fermer le panneau",
         "messages": "Messages du chat"
     },
     "input": {
-        "placeholder": "Message... (Maj+Entrée pour un saut de ligne)",
+        "placeholder": "Posez votre question… (Entrée pour envoyer, Maj+Entrée pour saut de ligne)",
+        "label": "Saisie du message",
         "send": "Envoyer",
         "stop": "Arrêter"
     },
@@ -24,7 +29,8 @@
         "apiKeyPlaceholder": "sk-..."
     },
     "modelSelector": {
-        "provider": "Fournisseur LLM",
+        "label": "Modèle",
+        "provider": "Fournisseur",
         "model": "Modèle"
     },
     "skills": {

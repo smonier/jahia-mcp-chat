@@ -1,23 +1,18 @@
 import React from 'react';
 import {useTranslation} from 'react-i18next';
 import {SkillsManager} from './SkillsManager';
-import styles from './McpChat.module.css';
+import styles from './McpSettings.module.css';
 
 export function McpSettings({settings, onUpdate, onAddSkill, onRemoveSkill, onClose}) {
     const {t} = useTranslation('jahia-mcp-chat');
 
     return (
-        <div className={styles.settingsPanel} role="dialog" aria-label={t('settings.title')}>
-            <div className={styles.settingsHeader}>
-                <h3 className={styles.settingsTitle}>{t('settings.title')}</h3>
-                <button className={styles.iconButton} onClick={onClose} aria-label={t('settings.close')}>×</button>
-            </div>
-
-            <div className={styles.settingsBody}>
-                <section className={styles.settingsSection}>
-                    <h4 className={styles.settingsSectionTitle}>{t('settings.mcp')}</h4>
-                    <label className={styles.label}>
-                        {t('settings.mcpEndpoint')}
+        <div className={styles.panel}>
+            <div className={styles.body}>
+                <section className={styles.section}>
+                    <h4 className={styles.sectionTitle}>{t('settings.mcp')}</h4>
+                    <label className={styles.field}>
+                        <span className={styles.fieldLabel}>{t('settings.mcpEndpoint')}</span>
                         <input
                             className={styles.input}
                             type="url"
@@ -26,8 +21,8 @@ export function McpSettings({settings, onUpdate, onAddSkill, onRemoveSkill, onCl
                             placeholder="http://localhost:8080/modules/mcp"
                         />
                     </label>
-                    <label className={styles.label}>
-                        {t('settings.mcpToken')}
+                    <label className={styles.field}>
+                        <span className={styles.fieldLabel}>{t('settings.mcpToken')}</span>
                         <input
                             className={styles.input}
                             type="password"
@@ -39,10 +34,10 @@ export function McpSettings({settings, onUpdate, onAddSkill, onRemoveSkill, onCl
                     </label>
                 </section>
 
-                <section className={styles.settingsSection}>
-                    <h4 className={styles.settingsSectionTitle}>{t('settings.llm')}</h4>
-                    <label className={styles.label}>
-                        {t('settings.apiKey')}
+                <section className={styles.section}>
+                    <h4 className={styles.sectionTitle}>{t('settings.llm')}</h4>
+                    <label className={styles.field}>
+                        <span className={styles.fieldLabel}>{t('settings.apiKey')}</span>
                         <input
                             className={styles.input}
                             type="password"

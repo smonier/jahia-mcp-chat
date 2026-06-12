@@ -1,38 +1,44 @@
 {
+    "action": {
+        "open": "MCP Chat"
+    },
     "panel": {
-        "title": "Jahia MCP Chat",
-        "empty": "Ask me anything about your Jahia site. I can manage content, pages, and more.",
-        "configHint": "Set your API key in ",
+        "title": "MCP Chat",
+        "empty": "Ask me anything about your Jahia site. I can manage content, pages, and more using the MCP server.",
+        "configHint": "Configure your API key in",
         "configLink": "settings",
         "clear": "Clear conversation",
+        "close": "Close panel",
         "messages": "Chat messages"
     },
     "input": {
-        "placeholder": "Message... (Shift+Enter for new line)",
-        "send": "Send message",
-        "stop": "Stop generation"
+        "placeholder": "Ask anything… (Enter to send, Shift+Enter for new line)",
+        "label": "Message input",
+        "send": "Send",
+        "stop": "Stop"
     },
     "settings": {
         "title": "Settings",
         "close": "Close settings",
         "mcp": "Jahia MCP Server",
-        "mcpEndpoint": "MCP endpoint URL",
-        "mcpToken": "API token",
+        "mcpEndpoint": "Endpoint URL",
+        "mcpToken": "API Token",
         "mcpTokenPlaceholder": "Your Jahia personal API token",
         "llm": "LLM Provider",
-        "apiKey": "API key",
-        "apiKeyPlaceholder": "sk-..."
+        "apiKey": "API Key",
+        "apiKeyPlaceholder": "sk-ant-... or sk-..."
     },
     "modelSelector": {
-        "provider": "LLM provider",
+        "label": "Model",
+        "provider": "Provider",
         "model": "Model"
     },
     "skills": {
         "title": "Skills",
-        "upload": "Upload .md file",
+        "upload": "Upload .md",
         "pull": "Pull",
         "githubLabel": "GitHub raw URL",
         "githubPlaceholder": "https://raw.githubusercontent.com/.../SKILL.md",
-        "remove": "Remove skill {{name}}"
+        "remove": "Remove {{name}}"
     }
 }

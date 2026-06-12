@@ -1,0 +1,100 @@
+.root { display: flex; flex-direction: column; gap: 8px; }
+
+.title {
+    margin: 0;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #7a7f88;
+}
+
+.actions { display: flex; flex-direction: column; gap: 6px; }
+
+.uploadBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #ffffff;
+    color: #0072b1;
+    border: 1px solid #bdd9f0;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    width: fit-content;
+    transition: background 0.15s;
+}
+
+.uploadBtn:hover { background: #e8f4fd; }
+
+.githubRow { display: flex; gap: 5px; }
+
+.input {
+    flex: 1;
+    background: #ffffff;
+    color: #131c21;
+    border: 1px solid #d8dde1;
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+}
+
+.input:focus { border-color: #0072b1; }
+.input::placeholder { color: #aeb1b7; }
+
+.pullBtn {
+    background: #0072b1;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+
+.pullBtn:hover:not(:disabled) { background: #004781; }
+.pullBtn:disabled { background: #d8dde1; cursor: not-allowed; }
+
+.error { margin: 0; font-size: 11px; color: #c00d0d; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: #e8f4fd;
+    border: 1px solid #bdd9f0;
+    border-radius: 12px;
+    padding: 2px 4px 2px 9px;
+    font-size: 11px;
+    color: #004781;
+}
+
+.chipName {
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chipRemove {
+    background: none;
+    border: none;
+    color: #7a7f88;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 4px;
+    line-height: 1;
+    transition: color 0.12s;
+}
+
+.chipRemove:hover { color: #c00d0d; }
