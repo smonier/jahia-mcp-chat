@@ -1,5 +1,7 @@
 import {useState, useRef, useCallback} from 'react';
 
+const LLM_PROXY = '/modules/jahia-mcp-chat/llm-proxy';
+
 const MCP_TOOL_DEFINITIONS = [
     {
         name: 'mcp_call',
@@ -53,13 +55,12 @@ Always confirm destructive operations with the user before executing them.${skil
 }
 
 async function* streamAnthropic(apiKey, model, messages, systemPrompt, onToolUse) {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(LLM_PROXY, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-beta': 'messages-2023-12-15'
+            'X-API-Key': apiKey,
+            'X-LLM-Provider': 'anthropic'
         },
         body: JSON.stringify({
             model,
@@ -131,11 +132,12 @@ async function* streamOpenAI(apiKey, model, messages, systemPrompt, onToolUse) {
         function: {name: t.name, description: t.description, parameters: t.input_schema}
     }));
 
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch(LLM_PROXY, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
+            'X-API-Key': apiKey,
+            'X-LLM-Provider': 'openai'
         },
         body: JSON.stringify({model, messages: openAIMessages, tools, stream: true, max_tokens: 4096})
     });
