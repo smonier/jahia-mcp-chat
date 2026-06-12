@@ -1,4 +1,5 @@
 {
+    "jahia-mcp-chat": {
     "action": {
         "open": "MCP Chat"
     },
@@ -40,5 +41,6 @@
         "githubLabel": "URL GitHub brute",
         "githubPlaceholder": "https://raw.githubusercontent.com/.../SKILL.md",
         "remove": "Supprimer la compétence {{name}}"
+    }
     }
 }
