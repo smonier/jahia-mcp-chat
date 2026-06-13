@@ -26,6 +26,8 @@
         "mcpToken": "Jeton API",
         "mcpTokenPlaceholder": "Votre jeton API personnel Jahia",
         "llm": "Fournisseur LLM",
+        "provider": "Fournisseur",
+        "model": "Modèle",
         "apiKey": "Clé API",
         "apiKeyPlaceholder": "sk-..."
     },

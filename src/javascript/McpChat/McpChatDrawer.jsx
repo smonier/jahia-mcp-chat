@@ -1,20 +1,34 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
-import {useMcpChat} from './useMcpChat';
+import {fetchMcpTools, useMcpChat} from './useMcpChat';
 import {useSettings} from './useSettings';
 import {ChatMessage} from './ChatMessage';
-import {ModelSelector} from './ModelSelector';
 import {McpSettings} from './McpSettings';
 import styles from './McpChatDrawer.module.css';
 
 export function McpChatDrawer({isOpen, onClose}) {
     const {t} = useTranslation('jahia-mcp-chat');
     const {settings, updateSettings, addSkill, removeSkill} = useSettings();
-    const {messages, isStreaming, sendMessage, stopStreaming, clearMessages} = useMcpChat(settings);
+    const [mcpTools, setMcpTools] = useState([]);
+    const [toolsLoading, setToolsLoading] = useState(false);
+    const {messages, isStreaming, sendMessage, stopStreaming, clearMessages} = useMcpChat(settings, mcpTools);
     const [input, setInput] = useState('');
     const [showSettings, setShowSettings] = useState(false);
     const messagesEndRef = useRef(null);
     const textareaRef = useRef(null);
+
+    const loadTools = useCallback(async () => {
+        if (!settings.mcpEndpoint || !settings.mcpToken) return;
+        setToolsLoading(true);
+        const tools = await fetchMcpTools(settings.mcpEndpoint, settings.mcpToken);
+        setMcpTools(tools);
+        setToolsLoading(false);
+    }, [settings.mcpEndpoint, settings.mcpToken]);
+
+    // Fetch tool list whenever the drawer opens or MCP credentials change
+    useEffect(() => {
+        if (isOpen) loadTools();
+    }, [isOpen, loadTools]);
 
     useEffect(() => {
         if (isOpen) {
@@ -73,6 +87,12 @@ export function McpChatDrawer({isOpen, onClose}) {
                             </svg>
                         </span>
                         <span className={styles.headerTitle}>{t('panel.title')}</span>
+                        {toolsLoading && <span className={styles.toolsBadge}>…</span>}
+                        {!toolsLoading && mcpTools.length > 0 && (
+                            <span className={styles.toolsBadge} title={mcpTools.map(t => t.name).join(', ')}>
+                                {mcpTools.length} tools
+                            </span>
+                        )}
                     </div>
                     <div className={styles.headerRight}>
                         {messages.length > 0 && (
@@ -110,19 +130,6 @@ export function McpChatDrawer({isOpen, onClose}) {
                         </button>
                     </div>
                 </header>
-
-                {/* Model bar */}
-                <div className={styles.modelBar}>
-                    <ModelSelector
-                        provider={settings.llmProvider}
-                        selectedModel={settings.selectedModel}
-                        onProviderChange={p => {
-                            const defaultModel = p === 'openai' ? 'gpt-4o' : 'claude-sonnet-4-6';
-                            updateSettings({llmProvider: p, selectedModel: defaultModel});
-                        }}
-                        onModelChange={m => updateSettings({selectedModel: m})}
-                    />
-                </div>
 
                 {/* Settings panel (collapsible) */}
                 {showSettings && (

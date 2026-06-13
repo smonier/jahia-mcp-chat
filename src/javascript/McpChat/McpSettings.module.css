@@ -62,3 +62,19 @@
 }
 
 .input::placeholder { color: #aeb1b7; }
+
+.select {
+    background: #ffffff;
+    color: #131c21;
+    border: 1px solid #d8dde1;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+.select:focus { border-color: #0072b1; }

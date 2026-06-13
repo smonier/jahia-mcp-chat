@@ -71,6 +71,18 @@
     letter-spacing: 0.01em;
 }
 
+.toolsBadge {
+    font-size: 10px;
+    font-weight: 500;
+    color: #0072b1;
+    background: #e8f4fd;
+    border: 1px solid #bdd9f0;
+    border-radius: 10px;
+    padding: 1px 7px;
+    margin-left: 6px;
+    white-space: nowrap;
+}
+
 .headerRight {
     display: flex;
     align-items: center;

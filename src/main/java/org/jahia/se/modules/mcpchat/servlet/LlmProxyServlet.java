@@ -16,67 +16,79 @@ import java.nio.charset.StandardCharsets;
 import java.util.stream.Collectors;
 
 /**
- * Proxies LLM API requests (Anthropic, OpenAI) to avoid CORS restrictions.
- * Registered at /modules/jahia-mcp-chat/llm-proxy.
- * The API key is passed in X-API-Key; the provider in X-LLM-Provider.
+ * Proxies LLM API requests (Anthropic, OpenAI) server-side to avoid browser CORS restrictions.
+ * Served at /modules/jahia-mcp-chat/llm-proxy — alias=/jahia-mcp-chat/llm-proxy maps under
+ * Jahia's /modules/ prefix. allow-api-token=true bypasses Jahia's locale filter.
+ * API key: X-API-Key header. Provider: X-LLM-Provider header (anthropic|openai).
  */
 @Component(
-    service = Servlet.class,
-    property = {
-        "alias=/modules/jahia-mcp-chat/llm-proxy",
-        "init.timeout:Integer=60"
-    }
-)
+        service = {HttpServlet.class, Servlet.class},
+        property = {"alias=/jahia-mcp-chat/llm-proxy", "allow-api-token=true"},
+        immediate = true)
 public class LlmProxyServlet extends HttpServlet {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmProxyServlet.class);
 
     private static final String ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-    private static final String OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+    private static final String OPENAI_URL    = "https://api.openai.com/v1/chat/completions";
+    private static final String DEEPSEEK_URL  = "https://api.deepseek.com/v1/chat/completions";
 
     @Override
     protected void doOptions(HttpServletRequest req, HttpServletResponse res) {
-        addCorsHeaders(res);
+        cors(res);
         res.setStatus(HttpServletResponse.SC_OK);
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
+        cors(res);
+        res.setContentType("text/plain");
+        res.getWriter().write("LLM proxy OK");
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse res)
             throws ServletException, IOException {
 
-        addCorsHeaders(res);
+        cors(res);
 
         String provider = req.getHeader("X-LLM-Provider");
-        String apiKey = req.getHeader("X-API-Key");
+        String apiKey   = req.getHeader("X-API-Key");
 
         if (apiKey == null || apiKey.isBlank()) {
             res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing X-API-Key header");
             return;
         }
 
-        String targetUrl = "openai".equalsIgnoreCase(provider) ? OPENAI_URL : ANTHROPIC_URL;
-
-        String requestBody = req.getReader().lines().collect(Collectors.joining("\n"));
+        String targetUrl;
+        if ("openai".equalsIgnoreCase(provider)) {
+            targetUrl = OPENAI_URL;
+        } else if ("deepseek".equalsIgnoreCase(provider)) {
+            targetUrl = DEEPSEEK_URL;
+        } else {
+            targetUrl = ANTHROPIC_URL;
+        }
+        String body = req.getReader().lines().collect(Collectors.joining("\n"));
 
         HttpURLConnection conn = (HttpURLConnection) new URL(targetUrl).openConnection();
         conn.setRequestMethod("POST");
         conn.setDoOutput(true);
         conn.setConnectTimeout(10_000);
         conn.setReadTimeout(120_000);
-
         conn.setRequestProperty("Content-Type", "application/json");
         conn.setRequestProperty("Accept", "text/event-stream");
 
-        if ("openai".equalsIgnoreCase(provider)) {
-            conn.setRequestProperty("Authorization", "Bearer " + apiKey);
-        } else {
+        if ("anthropic".equalsIgnoreCase(provider)) {
             conn.setRequestProperty("x-api-key", apiKey);
             conn.setRequestProperty("anthropic-version", "2023-06-01");
             conn.setRequestProperty("anthropic-beta", "messages-2023-12-15");
+        } else {
+            // OpenAI and DeepSeek both use Bearer auth
+            conn.setRequestProperty("Authorization", "Bearer " + apiKey);
         }
 
         try (OutputStream out = conn.getOutputStream()) {
-            out.write(requestBody.getBytes(StandardCharsets.UTF_8));
+            out.write(body.getBytes(StandardCharsets.UTF_8));
         }
 
         int status = conn.getResponseCode();
@@ -91,26 +103,23 @@ public class LlmProxyServlet extends HttpServlet {
             return;
         }
 
-        try (InputStream in = upstream;
-             OutputStream clientOut = res.getOutputStream()) {
+        try (InputStream in = upstream; OutputStream out = res.getOutputStream()) {
             byte[] buf = new byte[4096];
             int n;
             while ((n = in.read(buf)) != -1) {
-                clientOut.write(buf, 0, n);
-                clientOut.flush();
+                out.write(buf, 0, n);
+                out.flush();
             }
         } catch (IOException e) {
-            // Client disconnected — normal for stop
-            logger.debug("LLM proxy stream closed: {}", e.getMessage());
+            logger.debug("LLM proxy stream closed by client: {}", e.getMessage());
         } finally {
             conn.disconnect();
         }
     }
 
-    private void addCorsHeaders(HttpServletResponse res) {
+    private void cors(HttpServletResponse res) {
         res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers",
-            "Content-Type, X-API-Key, X-LLM-Provider, Authorization");
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-API-Key, X-LLM-Provider");
     }
 }

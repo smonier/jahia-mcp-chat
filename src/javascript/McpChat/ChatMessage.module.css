@@ -112,9 +112,15 @@
     gap: 5px;
     padding: 5px 9px;
     background: #f4f5f7;
-    border-bottom: 1px solid #e4e4e4;
+    border: none;
+    border-bottom: 1px solid transparent;
     color: #5a6875;
+    width: 100%;
+    text-align: left;
+    font: inherit;
 }
+
+.toolCallHeader:not(:disabled):hover { background: #ecedef; }
 
 .toolCallIcon { color: #7a7f88; flex-shrink: 0; }
 
@@ -125,16 +131,56 @@
     font-weight: 500;
 }
 
+.toolCallArgs {
+    font-size: 10.5px;
+    color: #7a7f88;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+}
+
 .toolCallStatus {
     margin-left: auto;
-    font-size: 10px;
+    font-size: 13px;
     display: flex;
     align-items: center;
     gap: 4px;
+    flex-shrink: 0;
+}
+
+.toolCallChevron {
+    font-size: 9px;
+    color: #7a7f88;
+    margin-left: 2px;
 }
 
 .done { color: #267729; }
 .running { color: #ef6c00; }
+
+.toolCallSummary {
+    padding: 5px 9px 6px;
+    font-size: 11.5px;
+    color: #3d5265;
+    line-height: 1.4;
+    border-top: 1px solid #ecedef;
+}
+
+.toolCallError { color: #c0392b; }
+
+.toolCallDetail {
+    margin: 0;
+    padding: 7px 9px;
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 10px;
+    line-height: 1.45;
+    color: #5a6875;
+    overflow-x: auto;
+    white-space: pre;
+    background: #fafafa;
+    border-top: 1px solid #ecedef;
+    max-height: 200px;
+}
 
 .spinner {
     display: inline-block;
@@ -148,21 +194,24 @@
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.toolCallCode,
-.toolCallResult {
-    margin: 0;
-    padding: 7px 9px;
-    font-family: 'SFMono-Regular', Consolas, monospace;
-    font-size: 10.5px;
-    line-height: 1.45;
-    color: #5a6875;
-    overflow-x: auto;
-    white-space: pre;
-    background: #ffffff;
+.tokenBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 4px;
+    font-size: 10px;
+    color: #9aa3ad;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    user-select: none;
 }
 
-.toolCallResult {
-    border-top: 1px solid #e4e4e4;
-    color: #267729;
-    background: #f7fbf7;
+.tokenIcon {
+    font-size: 9px;
+    opacity: 0.7;
+}
+
+.tokenTotal {
+    color: #b0b7bf;
+    font-weight: 500;
 }
