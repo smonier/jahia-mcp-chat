@@ -72,7 +72,9 @@ module.exports = (env, argv) => {
                 },
                 shared: {
                     react: {singleton: true, requiredVersion: packageJson.dependencies.react},
-                    'react-dom': {singleton: true, requiredVersion: packageJson.dependencies['react-dom']}
+                    'react-dom': {singleton: true, requiredVersion: packageJson.dependencies['react-dom']},
+                    'react-redux': {singleton: true, import: false},
+                    'redux': {singleton: true, import: false}
                 }
             })),
             new CleanWebpackPlugin({verbose: false}),

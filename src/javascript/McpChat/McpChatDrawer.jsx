@@ -1,4 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {useSelector} from 'react-redux';
 import {useTranslation} from 'react-i18next';
 import {fetchMcpTools, useMcpChat} from './useMcpChat';
 import {useSettings} from './useSettings';
@@ -9,9 +10,10 @@ import styles from './McpChatDrawer.module.css';
 export function McpChatDrawer({isOpen, onClose}) {
     const {t} = useTranslation('jahia-mcp-chat');
     const {settings, updateSettings, addSkill, removeSkill} = useSettings();
+    const siteKey = useSelector(state => state.site);
     const [mcpTools, setMcpTools] = useState([]);
     const [toolsLoading, setToolsLoading] = useState(false);
-    const {messages, isStreaming, sendMessage, stopStreaming, clearMessages} = useMcpChat(settings, mcpTools);
+    const {messages, isStreaming, sendMessage, stopStreaming, clearMessages} = useMcpChat(settings, mcpTools, siteKey);
     const [input, setInput] = useState('');
     const [showSettings, setShowSettings] = useState(false);
     const messagesEndRef = useRef(null);

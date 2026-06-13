@@ -189,16 +189,7 @@ function formatToolSignature(tool) {
         : `${tool.name}${desc}`;
 }
 
-function getCurrentSiteKey() {
-    // jContent URL pattern: /jahia/jcontent/{siteKey}/...
-    const match = window.location.pathname.match(/\/jahia\/jcontent\/([^/]+)/);
-    if (match) return match[1];
-    // Fallback: contextJsParameters (may not always have siteKey)
-    return window.jahia?.contextJsParameters?.siteKey || null;
-}
-
-function buildSystemPrompt(mcpEndpoint, skills, mcpTools) {
-    const siteKey = getCurrentSiteKey();
+function buildSystemPrompt(mcpEndpoint, skills, mcpTools, siteKey) {
     const siteCtx = siteKey ? `\nThe user is currently working on site: **${siteKey}**. Use this as the default site for all operations unless told otherwise.\n` : '';
 
     const toolCatalog = mcpTools && mcpTools.length > 0
@@ -488,7 +479,7 @@ function saveHistory(messages) {
     } catch {}
 }
 
-export function useMcpChat(settings, mcpTools) {
+export function useMcpChat(settings, mcpTools, siteKey) {
     const [messages, setMessages] = useState(loadHistory);
     const [isStreaming, setIsStreaming] = useState(false);
     const abortRef = useRef(null);
@@ -516,7 +507,7 @@ export function useMcpChat(settings, mcpTools) {
             return {error: `Unknown tool: ${name}`};
         };
 
-        const systemPrompt = buildSystemPrompt(settings.mcpEndpoint, settings.skills || [], mcpTools);
+        const systemPrompt = buildSystemPrompt(settings.mcpEndpoint, settings.skills || [], mcpTools, siteKey);
 
         // Keep last 20 messages; truncate old text content to save tokens
         const trimmedHistory = history.slice(-20).map((m, i, arr) => {
