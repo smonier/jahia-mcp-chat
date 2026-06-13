@@ -8,17 +8,15 @@ A **Jahia jContent UI extension** that adds a side-drawer chat panel powered by 
 
 - Opens a chat drawer directly in the jContent back-office (left nav icon)
 - Routes your messages to an LLM (Anthropic, OpenAI, or DeepSeek)
-- The LLM calls Jahia MCP tools autonomously — listing sites, browsing content types, creating or updating nodes, listing pages, and more
-- Runs an agentic loop: the assistant chains tool calls until the task is fully complete, without stopping after each step
-- Shows a live token counter per response (input / output / total)
+- Runs a full **agentic loop** — the assistant chains tool calls until the task is fully complete, without stopping after each step
+- Shows a **live token counter** per response (input / output / total)
+- **Persists settings in JCR** under each user's node — survives browser restarts, machine changes, and Jahia restarts
 - Persists chat history across panel close/reopen via `localStorage`
-- Supports custom Skills (upload `.md` files or pull from a GitHub raw URL) to extend what the assistant knows
+- Supports custom **Skills** (upload `.md` files or pull from a GitHub raw URL) to extend what the assistant knows
 
 ---
 
-## Screenshots
-
-> Chat panel inside jContent with tool call trace and token counter
+## UI overview
 
 ```
 ┌──────────────────────────────────────────┐
@@ -47,22 +45,27 @@ A **Jahia jContent UI extension** that adds a side-drawer chat panel powered by 
 jContent browser
     └── McpChatPanel (React 18, Module Federation)
             └── McpChatDrawer
-                    ├── useMcpChat (agentic loop, history, streaming)
-                    ├── ChatMessage (bubbles, tool call blocks, token badge)
-                    ├── McpSettings (MCP endpoint + LLM config + Skills)
-                    └── SkillsManager (upload .md / pull from GitHub)
+                    ├── useMcpChat      agentic loop, streaming, history
+                    ├── useSettings     JCR-backed persistence + localStorage cache
+                    ├── ChatMessage     bubbles, tool call blocks, token badge
+                    ├── McpSettings     MCP endpoint + LLM config + Skills
+                    └── SkillsManager   upload .md / pull from GitHub
 
 Java OSGi layer
-    └── LlmProxyServlet  ← server-side CORS proxy
-            ├── → api.anthropic.com/v1/messages
-            ├── → api.openai.com/v1/chat/completions
-            └── → api.deepseek.com/v1/chat/completions
+    ├── LlmProxyServlet   /modules/jahia-mcp-chat/llm-proxy
+    │       ├── → api.anthropic.com/v1/messages
+    │       ├── → api.openai.com/v1/chat/completions
+    │       └── → api.deepseek.com/v1/chat/completions
+    └── SettingsServlet   /modules/jahia-mcp-chat/settings
+            └── JCR: {userNode}/mcp-chat-settings (jnt:content, data property)
 
 Jahia MCP server (separate module)
-    └── /modules/mcp  ← JSON-RPC 2.0 endpoint for Jahia tools
+    └── /modules/mcp   JSON-RPC 2.0 endpoint for Jahia tools
 ```
 
-The LLM API is **never called directly from the browser**. All requests go through `LlmProxyServlet`, a Jahia-registered OSGi servlet at `/modules/jahia-mcp-chat/llm-proxy`, which forwards the request server-side and streams the SSE response back.
+**LLM API calls** are never made from the browser — `LlmProxyServlet` forwards them server-side and streams the SSE response back, avoiding all CORS issues.
+
+**Settings** are read and written by `SettingsServlet` using the current user's authenticated JCR session. No credentials are stored in plain text anywhere on the server.
 
 ---
 
@@ -74,7 +77,7 @@ The LLM API is **never called directly from the browser**. All requests go throu
 | **OpenAI** | GPT-4o, GPT-4o Mini, o1, o3-mini |
 | **DeepSeek** | DeepSeek V4 Flash, DeepSeek Chat (V3), DeepSeek Reasoner (R1) |
 
-Provider and model are selected in the settings panel. Your API key is stored in `localStorage` and sent via the `X-API-Key` header to the proxy servlet — it never leaves your machine in plaintext.
+DeepSeek uses the OpenAI-compatible API format — the same agentic loop handles all three.
 
 ---
 
@@ -97,12 +100,9 @@ Provider and model are selected in the settings panel. Your API key is stored in
 git clone https://github.com/smonier/jahia-mcp-chat.git
 cd jahia-mcp-chat
 
-# Front-end build
-yarn install
-yarn build
-
-# Maven build + deploy
+# Front-end + Java build
 JAVA_HOME=/path/to/java17 mvn clean install
+
 # Copy target/jahia-mcp-chat-*.jar to $JAHIA_HOME/data/modules/
 # or: mvn jahia:deploy (if jahia-maven-plugin is configured)
 ```
@@ -115,45 +115,69 @@ Download the latest release JAR from the [Releases](https://github.com/smonier/j
 
 ## Configuration
 
-Open jContent and click the **chat bubble icon** in the left navigation bar. The first time, go to **Settings** (gear icon) and fill in:
+Open jContent and click the **chat bubble icon** in the left navigation bar. Go to **Settings** (gear icon) on first use:
+
+### MCP Server
 
 | Field | Description |
 |---|---|
-| **MCP Endpoint URL** | URL of your Jahia MCP server, e.g. `http://localhost:8080/modules/mcp` |
-| **API Token** | Your Jahia personal API token (used to authenticate MCP calls) |
-| **Provider** | Anthropic, OpenAI, or DeepSeek |
-| **Model** | Model to use for this provider |
-| **API Key** | Your LLM provider API key (`sk-ant-…`, `sk-…`, or DeepSeek key) |
+| **Endpoint URL** | URL of your Jahia MCP server, e.g. `http://localhost:8080/modules/mcp` |
+| **API Token** | Your Jahia personal API token (authenticates MCP tool calls) |
 
-Settings are persisted in `localStorage` per browser.
+### LLM Provider
+
+| Field | Description |
+|---|---|
+| **Provider** | Anthropic, OpenAI, or DeepSeek |
+| **Model** | Model for the selected provider (defaults to the recommended model) |
+| **API Key** | Your LLM provider API key (`sk-ant-…`, `sk-…`, or DeepSeek key) |
+| **Max output tokens** | Output token budget per LLM response (default: 4096, range: 256–32000) |
+
+**Settings are stored in JCR** under your user node — they persist across browser restarts and are tied to your Jahia account, not the browser. On panel open, settings are loaded from the server first; `localStorage` is kept as a fast-read cache.
 
 ---
 
 ## Skills
 
-Skills are Markdown documents that extend what the assistant knows. They are prepended to the system prompt on every message.
+Skills are Markdown documents prepended to the system prompt on every message. They extend what the assistant knows — custom workflows, content conventions, site-specific rules.
 
-**Upload a `.md` file** — click the upload button in the Skills section of settings and pick any Markdown file from your machine.
+**Upload a `.md` file** — click the upload button in the Skills section of settings.
 
 **Pull from GitHub** — paste a raw GitHub URL (e.g. `https://raw.githubusercontent.com/org/repo/main/SKILL.md`) and click Pull.
 
-Loaded skills appear as chips and can be removed individually.
+Loaded skills appear as chips and can be removed individually. Skills are stored in `localStorage` (per browser) since they can be large files.
 
 ---
 
 ## Token consumption
 
-Each assistant response shows a small badge:
+Each assistant response shows a small badge under the message bubble:
 
 ```
 ◈  1.2k↑  342↓  1.5k
 ```
 
-- `↑` input tokens (prompt + history + system prompt + tool results)
-- `↓` output tokens (assistant response + tool call arguments)
-- last number: total for that response
+| Symbol | Meaning |
+|---|---|
+| `↑` | Input tokens — prompt + history + system prompt + tool results |
+| `↓` | Output tokens — assistant text + tool call arguments |
+| last value | Total for that response |
 
-Numbers above 1 000 are shown as `1.2k`. Hover the badge for the exact counts.
+Numbers ≥ 1000 are shown as `1.2k`. Hover the badge for exact counts.
+
+The token budget per response is controlled by **Max output tokens** in settings. If the LLM hits the limit mid-response, the agentic loop detects assembled tool calls and continues anyway rather than dropping work silently.
+
+---
+
+## Settings persistence
+
+| What | Where | Survives restart? |
+|---|---|---|
+| MCP endpoint, API keys, model, max tokens | JCR `{userNode}/mcp-chat-settings` | Yes — server-side, per user |
+| Chat history | `localStorage` | Yes — browser-local |
+| Skills | `localStorage` | Yes — browser-local |
+
+If the JCR servlet is unreachable (e.g. not logged in), the panel falls back to `localStorage` silently.
 
 ---
 
@@ -161,22 +185,22 @@ Numbers above 1 000 are shown as `1.2k`. Hover the badge for the exact counts.
 
 ```
 jahia-mcp-chat/
-├── pom.xml                              # Maven OSGi bundle
-├── package.json / webpack.config.js     # Front-end build
+├── pom.xml                              # Maven OSGi bundle (Java 17, Jahia 8.2)
+├── package.json / webpack.config.js     # Webpack 5 + Module Federation
 ├── src/
 │   ├── javascript/
-│   │   ├── index.js                     # jahiaApp-init:50 registration
+│   │   ├── index.js                     # jahiaApp-init:50 registration callback
 │   │   ├── init.js                      # loadNamespaces + register drawer action
 │   │   └── McpChat/
-│   │       ├── McpChatDrawer.jsx        # Main drawer shell
-│   │       ├── ChatMessage.jsx          # Bubbles, tool call blocks, token badge
+│   │       ├── McpChatDrawer.jsx        # Main drawer shell + header
+│   │       ├── ChatMessage.jsx          # Message bubbles, tool call blocks, token badge
 │   │       ├── McpSettings.jsx          # Settings panel (MCP + LLM + Skills)
 │   │       ├── SkillsManager.jsx        # Upload / GitHub pull for .md skills
-│   │       ├── useMcpChat.js            # Agentic loop, streaming, history
-│   │       └── useSettings.js           # localStorage persistence
-│   └── main/
-│       └── java/.../servlet/
-│           └── LlmProxyServlet.java     # Server-side LLM proxy (CORS, streaming)
+│   │       ├── useMcpChat.js            # Agentic loop, SSE streaming, history
+│   │       └── useSettings.js           # JCR-backed settings with localStorage cache
+│   └── main/java/.../servlet/
+│       ├── LlmProxyServlet.java         # Server-side LLM proxy — CORS + SSE streaming
+│       └── SettingsServlet.java         # Per-user JCR settings GET/POST
 └── src/main/resources/
     ├── javascript/apps/                 # Webpack output (committed)
     └── javascript/locales/              # en.json, fr.json
@@ -187,34 +211,29 @@ jahia-mcp-chat/
 ## Development
 
 ```bash
-# Watch build (human dev only — never use in agents)
-yarn dev
-
-# One-shot build
+# Front-end only (fast iteration)
 yarn build
 
-# Build + deploy to running Jahia
-yarn build && yarn jahia-deploy   # if jahia-deploy script is configured
-# or
-JAVA_HOME=/path/to/java17 mvn install
+# Full build (front-end + Java OSGi bundle)
+JAVA_HOME=/path/to/java17 mvn clean install
+
+# Deploy JAR to running Jahia
+cp target/jahia-mcp-chat-*.jar $JAHIA_HOME/data/modules/
 ```
 
-Front-end changes: edit files under `src/javascript/`, run `yarn build`, redeploy the bundle.
-
-Java changes (proxy servlet): run `mvn install` — this rebuilds both front-end and Java, repackages the OSGi bundle.
+> Never run `yarn dev` from an automated process — it is an interactive file watcher for human use only.
 
 ---
 
 ## How the agentic loop works
 
 1. User sends a message
-2. The LLM receives the full system prompt (MCP tool catalog + loaded skills + site context)
-3. If the LLM calls `mcp_call`, the hook executes the tool against the Jahia MCP server
-4. The tool result is summarized (to save tokens) and fed back to the LLM
-5. Steps 3-4 repeat until the LLM returns `stop_reason: end_turn`
-6. The final text response is displayed; older turns are compressed to keep token usage low
+2. The LLM receives a system prompt containing: MCP tool catalog with full parameter signatures, loaded Skills, and the current jContent site context
+3. If the LLM emits a `mcp_call` tool use block, the hook executes it against the Jahia MCP server and feeds the summarized result back
+4. Steps 3 repeat until `stop_reason: end_turn` — the LLM decides when the task is done
+5. The final text response is displayed with a token usage badge
 
-Chat history is trimmed to the last 20 turns; old tool result blocks are capped at 500 characters.
+**Token optimization:** results are summarized by type before being fed back to the LLM (e.g. a 200-node list becomes a 30-item summary). Older turns in the history are progressively compressed. History is trimmed to the last 20 turns.
 
 ---
 
