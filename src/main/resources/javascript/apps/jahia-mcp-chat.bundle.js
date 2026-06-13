@@ -101,7 +101,7 @@ eval("{__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpa
 /******/ 		// This function allow to reference async chunks
 /******/ 		__webpack_require__.u = (chunkId) => {
 /******/ 			// return url for filenames based on template
-/******/ 			return "" + chunkId + ".jahia-mcp-chat." + "268ea3" + ".js";
+/******/ 			return "" + chunkId + ".jahia-mcp-chat." + "fe11cc" + ".js";
 /******/ 		};
 /******/ 	})();
 /******/ 	

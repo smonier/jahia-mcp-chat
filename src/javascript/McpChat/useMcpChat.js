@@ -189,8 +189,16 @@ function formatToolSignature(tool) {
         : `${tool.name}${desc}`;
 }
 
+function getCurrentSiteKey() {
+    // jContent URL pattern: /jahia/jcontent/{siteKey}/...
+    const match = window.location.pathname.match(/\/jahia\/jcontent\/([^/]+)/);
+    if (match) return match[1];
+    // Fallback: contextJsParameters (may not always have siteKey)
+    return window.jahia?.contextJsParameters?.siteKey || null;
+}
+
 function buildSystemPrompt(mcpEndpoint, skills, mcpTools) {
-    const siteKey = window.jahia?.contextJsParameters?.siteKey;
+    const siteKey = getCurrentSiteKey();
     const siteCtx = siteKey ? `\nThe user is currently working on site: **${siteKey}**. Use this as the default site for all operations unless told otherwise.\n` : '';
 
     const toolCatalog = mcpTools && mcpTools.length > 0
@@ -212,7 +220,7 @@ The only exception is a purely conversational message with no site action needed
 
 ## Behavior
 - Chain tool calls automatically — keep going until the task is fully done without waiting for the user.
-- Before creating content, call \`content.type\` or \`page.templates\` to verify what types and templates exist on the site. Never invent type names.
+- Before creating content, call \`content.type\` or \`page.templates\` to verify what types and templates exist on the current site. Never invent type names.
 - Summarize results in plain language. Never paste raw JSON.
 - For destructive operations (delete, unpublish all), ask once before executing.
 ${toolCatalog}${skillsText}`;
