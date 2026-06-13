@@ -21,10 +21,6 @@
     "settings": {
         "title": "Settings",
         "close": "Close settings",
-        "mcp": "Jahia MCP Server",
-        "mcpEndpoint": "Endpoint URL",
-        "mcpToken": "API Token",
-        "mcpTokenPlaceholder": "Your Jahia personal API token",
         "llm": "LLM Provider",
         "provider": "Provider",
         "model": "Model",

@@ -21,10 +21,6 @@
     "settings": {
         "title": "Paramètres",
         "close": "Fermer les paramètres",
-        "mcp": "Serveur Jahia MCP",
-        "mcpEndpoint": "URL du point de terminaison MCP",
-        "mcpToken": "Jeton API",
-        "mcpTokenPlaceholder": "Votre jeton API personnel Jahia",
         "llm": "Fournisseur LLM",
         "provider": "Fournisseur",
         "model": "Modèle",

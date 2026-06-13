@@ -55,22 +55,6 @@ export function McpSettings({settings, config, onUpdate, onAddSkill, onRemoveSki
     return (
         <div className={styles.panel}>
             <div className={styles.body}>
-                {/* MCP personal token */}
-                <section className={styles.section}>
-                    <h4 className={styles.sectionTitle}>{t('settings.mcp')}</h4>
-                    <label className={styles.field}>
-                        <span className={styles.fieldLabel}>{t('settings.mcpToken')}</span>
-                        <input
-                            className={styles.input}
-                            type="password"
-                            value={settings.mcpToken}
-                            onChange={e => onUpdate({mcpToken: e.target.value})}
-                            placeholder={t('settings.mcpTokenPlaceholder')}
-                            autoComplete="off"
-                        />
-                    </label>
-                </section>
-
                 {/* LLM preferences — only providers with OSGi-configured keys */}
                 <section className={styles.section}>
                     <h4 className={styles.sectionTitle}>{t('settings.llm')}</h4>
