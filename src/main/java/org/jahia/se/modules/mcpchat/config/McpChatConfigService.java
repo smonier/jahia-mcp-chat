@@ -31,6 +31,10 @@ public class McpChatConfigService {
         return config.mcpEndpoint;
     }
 
+    public String getMcpJwtToken() {
+        return config.mcpJwtToken;
+    }
+
     public String getApiKeyForProvider(String provider) {
         if ("openai".equalsIgnoreCase(provider)) return config.openaiApiKey;
         if ("deepseek".equalsIgnoreCase(provider)) return config.deepseekApiKey;
@@ -69,6 +73,7 @@ public class McpChatConfigService {
     private static final class Snapshot {
 
         final String mcpEndpoint;
+        final String mcpJwtToken;
         final String anthropicApiKey;
         final String openaiApiKey;
         final String deepseekApiKey;
@@ -77,10 +82,11 @@ public class McpChatConfigService {
         final int    maxTokens;
         final String systemPromptAppendix;
 
-        private Snapshot(String mcpEndpoint, String anthropicApiKey, String openaiApiKey,
-                         String deepseekApiKey, String defaultProvider, String defaultModel,
-                         int maxTokens, String systemPromptAppendix) {
+        private Snapshot(String mcpEndpoint, String mcpJwtToken, String anthropicApiKey,
+                         String openaiApiKey, String deepseekApiKey, String defaultProvider,
+                         String defaultModel, int maxTokens, String systemPromptAppendix) {
             this.mcpEndpoint          = mcpEndpoint;
+            this.mcpJwtToken          = mcpJwtToken;
             this.anthropicApiKey      = anthropicApiKey;
             this.openaiApiKey         = openaiApiKey;
             this.deepseekApiKey       = deepseekApiKey;
@@ -93,6 +99,7 @@ public class McpChatConfigService {
         static Snapshot defaults() {
             return new Snapshot(
                 "http://localhost:8080/modules/mcp",
+                "",
                 "", "", "",
                 "anthropic", "claude-sonnet-4-6",
                 4096, ""
@@ -102,6 +109,7 @@ public class McpChatConfigService {
         static Snapshot from(Map<String, Object> p) {
             return new Snapshot(
                 str(p, "MCP_ENDPOINT",            "http://localhost:8080/modules/mcp"),
+                str(p, "MCP_JWT_TOKEN",            ""),
                 str(p, "ANTHROPIC_API_KEY",        ""),
                 str(p, "OPENAI_API_KEY",           ""),
                 str(p, "DEEPSEEK_API_KEY",         ""),

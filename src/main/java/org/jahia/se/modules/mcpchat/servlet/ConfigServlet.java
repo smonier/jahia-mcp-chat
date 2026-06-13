@@ -52,14 +52,19 @@ public class ConfigServlet extends HttpServlet {
                 .replace("\n", "\\n")
                 .replace("\r", "");
 
+        String mcpToken = configService.getMcpJwtToken()
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"");
+
         res.getWriter().write(String.format(
                 "{\"availableProviders\":%s,\"defaultProvider\":\"%s\",\"defaultModel\":\"%s\"," +
-                "\"maxTokens\":%d,\"mcpEndpoint\":\"%s\",\"systemPromptAppendix\":\"%s\"}",
+                "\"maxTokens\":%d,\"mcpEndpoint\":\"%s\",\"mcpToken\":\"%s\",\"systemPromptAppendix\":\"%s\"}",
                 providersJson,
                 configService.getDefaultProvider(),
                 configService.getDefaultModel(),
                 configService.getMaxTokens(),
                 configService.getMcpEndpoint(),
+                mcpToken,
                 appendix
         ));
     }

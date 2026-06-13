@@ -214,6 +214,12 @@ The only exception is a purely conversational message with no site action needed
 - Before creating content, call \`content.type\` or \`page.templates\` to verify what types and templates exist on the current site. Never invent type names.
 - Summarize results in plain language. Never paste raw JSON.
 - For destructive operations (delete, unpublish all), ask once before executing.
+
+## Page creation workflow (always follow this order)
+1. Call \`page.templates\` to list available templates for the site. Pick the right one before proceeding.
+2. Call \`page.create\` — it creates the page AND returns the full page structure: available content containers with their paths and content-type constraints. Use this structure to know exactly where and what to add next.
+3. If you need to inspect the structure of an **existing** page (not a new one), call \`page.structure\` directly — it returns the same container map as \`page.create\`.
+4. To discover all content types available on the current site, call \`site.types\`. Use this before adding content if you are unsure which type name to use.
 ${toolCatalog}${skillsText}${systemPromptAppendix ? '\n\n## Client-specific instructions\n\n' + systemPromptAppendix : ''}`;
 }
 
@@ -503,11 +509,14 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
         const model         = settings.selectedModel || osgiConfig.defaultModel || 'claude-sonnet-4-6';
         const maxTokens     = settings.maxTokens || osgiConfig.maxTokens || 4096;
 
+        // User's personal token takes priority; fall back to the server-configured JWT token
+        const mcpToken = settings.mcpToken || osgiConfig.mcpToken || '';
+
         const onToolUse = async (id, name, input) => {
             if (!mcpEndpoint) return {error: 'MCP endpoint not configured'};
             try {
                 if (name === 'mcp_call') {
-                    return await callMcpTool(mcpEndpoint, settings.mcpToken, input.tool, input.params);
+                    return await callMcpTool(mcpEndpoint, mcpToken, input.tool, input.params);
                 }
             } catch (err) {
                 return {error: err.message};
