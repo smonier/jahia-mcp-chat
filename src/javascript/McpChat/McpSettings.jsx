@@ -108,6 +108,18 @@ export function McpSettings({settings, onUpdate, onAddSkill, onRemoveSkill}) {
                             autoComplete="off"
                         />
                     </label>
+                    <label className={styles.field}>
+                        <span className={styles.fieldLabel}>{t('settings.maxTokens')}</span>
+                        <input
+                            className={styles.input}
+                            type="number"
+                            min="256"
+                            max="32000"
+                            step="256"
+                            value={settings.maxTokens}
+                            onChange={e => onUpdate({maxTokens: parseInt(e.target.value, 10) || 4096})}
+                        />
+                    </label>
                 </section>
 
                 <SkillsManager

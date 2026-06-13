@@ -8,6 +8,7 @@ const DEFAULTS = {
     llmProvider: 'anthropic',
     llmApiKey: '',
     selectedModel: 'claude-sonnet-4-6',
+    maxTokens: 4096,
     skills: []
 };
 

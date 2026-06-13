@@ -29,7 +29,8 @@
         "provider": "Provider",
         "model": "Model",
         "apiKey": "API Key",
-        "apiKeyPlaceholder": "sk-ant-... or sk-..."
+        "apiKeyPlaceholder": "sk-ant-... or sk-...",
+        "maxTokens": "Max output tokens"
     },
     "modelSelector": {
         "label": "Model",

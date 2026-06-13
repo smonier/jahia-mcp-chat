@@ -244,7 +244,7 @@ function compressOldToolMessages(msg) {
 }
 
 // Agentic loop for Anthropic: streams response, executes tool calls, continues until end_turn
-async function* runAnthropicLoop(apiKey, model, messages, systemPrompt, onToolUse, signal) {
+async function* runAnthropicLoop(apiKey, model, messages, systemPrompt, onToolUse, signal, maxTokens = 4096) {
     let currentMessages = messages.map(m => ({role: m.role, content: m.content}));
 
     while (!signal?.aborted) {
@@ -253,7 +253,7 @@ async function* runAnthropicLoop(apiKey, model, messages, systemPrompt, onToolUs
             headers: {'Content-Type': 'application/json', 'X-API-Key': apiKey, 'X-LLM-Provider': 'anthropic'},
             body: JSON.stringify({
                 model,
-                max_tokens: 4096,
+                max_tokens: maxTokens,
                 system: systemPrompt,
                 tools: MCP_TOOL_DEFINITIONS,
                 messages: currentMessages,
@@ -361,7 +361,7 @@ async function* runAnthropicLoop(apiKey, model, messages, systemPrompt, onToolUs
 }
 
 // Agentic loop for OpenAI-compatible APIs (OpenAI, DeepSeek)
-async function* runOpenAILoop(apiKey, model, messages, systemPrompt, onToolUse, signal, provider = 'openai') {
+async function* runOpenAILoop(apiKey, model, messages, systemPrompt, onToolUse, signal, provider = 'openai', maxTokens = 4096) {
     const tools = MCP_TOOL_DEFINITIONS.map(t => ({
         type: 'function',
         function: {name: t.name, description: t.description, parameters: t.input_schema}
@@ -375,7 +375,7 @@ async function* runOpenAILoop(apiKey, model, messages, systemPrompt, onToolUse, 
         const res = await fetch(LLM_PROXY, {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'X-API-Key': apiKey, 'X-LLM-Provider': provider},
-            body: JSON.stringify({model, messages: currentMessages, tools, stream: true, max_tokens: 4096, stream_options: {include_usage: true}}),
+            body: JSON.stringify({model, messages: currentMessages, tools, stream: true, max_tokens: maxTokens, stream_options: {include_usage: true}}),
             signal
         });
 
@@ -522,10 +522,11 @@ export function useMcpChat(settings, mcpTools) {
         setMessages(prev => [...prev, {role: 'assistant', content: '', streaming: true}]);
 
         try {
+            const maxTokens = settings.maxTokens || 4096;
             const useOpenAICompat = settings.llmProvider === 'openai' || settings.llmProvider === 'deepseek';
             const stream = useOpenAICompat
-                ? runOpenAILoop(settings.llmApiKey, settings.selectedModel, trimmedHistory, systemPrompt, onToolUse, controller.signal, settings.llmProvider)
-                : runAnthropicLoop(settings.llmApiKey, settings.selectedModel, trimmedHistory, systemPrompt, onToolUse, controller.signal);
+                ? runOpenAILoop(settings.llmApiKey, settings.selectedModel, trimmedHistory, systemPrompt, onToolUse, controller.signal, settings.llmProvider, maxTokens)
+                : runAnthropicLoop(settings.llmApiKey, settings.selectedModel, trimmedHistory, systemPrompt, onToolUse, controller.signal, maxTokens);
 
             for await (const event of stream) {
                 if (controller.signal.aborted) break;

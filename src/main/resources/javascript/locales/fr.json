@@ -29,7 +29,8 @@
         "provider": "Fournisseur",
         "model": "Modèle",
         "apiKey": "Clé API",
-        "apiKeyPlaceholder": "sk-..."
+        "apiKeyPlaceholder": "sk-...",
+        "maxTokens": "Tokens de sortie max"
     },
     "modelSelector": {
         "label": "Modèle",
