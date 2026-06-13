@@ -253,7 +253,7 @@ async function* runAnthropicLoop(apiKey, model, messages, systemPrompt, onToolUs
             headers: {'Content-Type': 'application/json', 'X-API-Key': apiKey, 'X-LLM-Provider': 'anthropic'},
             body: JSON.stringify({
                 model,
-                max_tokens: 1024,
+                max_tokens: 4096,
                 system: systemPrompt,
                 tools: MCP_TOOL_DEFINITIONS,
                 messages: currentMessages,
@@ -334,10 +334,11 @@ async function* runAnthropicLoop(apiKey, model, messages, systemPrompt, onToolUs
             yield {type: 'usage', input: inputTokens, output: outputTokens};
         }
 
-        if (stopReason !== 'tool_use') break;
+        const toolUseBlocks = assistantContentBlocks.filter(b => b.type === 'tool_use');
+        // Continue if stop was tool_use, or if max_tokens hit but tool calls were already assembled
+        if (stopReason !== 'tool_use' && toolUseBlocks.length === 0) break;
 
         // Execute all tool calls from this turn
-        const toolUseBlocks = assistantContentBlocks.filter(b => b.type === 'tool_use');
         const toolResults = [];
         for (const tu of toolUseBlocks) {
             yield {type: 'tool_start', name: tu.name, input: tu.input, id: tu.id};
@@ -374,7 +375,7 @@ async function* runOpenAILoop(apiKey, model, messages, systemPrompt, onToolUse, 
         const res = await fetch(LLM_PROXY, {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'X-API-Key': apiKey, 'X-LLM-Provider': provider},
-            body: JSON.stringify({model, messages: currentMessages, tools, stream: true, max_tokens: 1024, stream_options: {include_usage: true}}),
+            body: JSON.stringify({model, messages: currentMessages, tools, stream: true, max_tokens: 4096, stream_options: {include_usage: true}}),
             signal
         });
 
@@ -423,7 +424,8 @@ async function* runOpenAILoop(apiKey, model, messages, systemPrompt, onToolUse, 
             }
         }
 
-        if (stopReason !== 'tool_calls') break;
+        const pendingToolCalls = Object.keys(toolCallBuf).length > 0;
+        if (stopReason !== 'tool_calls' && !pendingToolCalls) break;
 
         const assistantMsg = {role: 'assistant', content: assistantText || null, tool_calls: []};
         const toolResults = [];
