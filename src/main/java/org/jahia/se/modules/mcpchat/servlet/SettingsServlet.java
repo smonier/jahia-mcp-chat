@@ -33,7 +33,7 @@ public class SettingsServlet extends HttpServlet {
     private static final Logger logger = LoggerFactory.getLogger(SettingsServlet.class);
     private static final String SETTINGS_NODE = "mcp-chat-settings";
     private static final String DATA_PROP = "data";
-    private static final String NODE_TYPE = "jnt:content";
+    private static final String NODE_TYPE = "nt:unstructured";
 
     @Override
     protected void doOptions(HttpServletRequest req, HttpServletResponse res) {
