@@ -189,7 +189,7 @@ function formatToolSignature(tool) {
         : `${tool.name}${desc}`;
 }
 
-function buildSystemPrompt(mcpEndpoint, skills, mcpTools, siteKey) {
+function buildSystemPrompt(mcpEndpoint, skills, mcpTools, siteKey, systemPromptAppendix) {
     const siteCtx = siteKey ? `\nThe user is currently working on site: **${siteKey}**. Use this as the default site for all operations unless told otherwise.\n` : '';
 
     const toolCatalog = mcpTools && mcpTools.length > 0
@@ -214,7 +214,7 @@ The only exception is a purely conversational message with no site action needed
 - Before creating content, call \`content.type\` or \`page.templates\` to verify what types and templates exist on the current site. Never invent type names.
 - Summarize results in plain language. Never paste raw JSON.
 - For destructive operations (delete, unpublish all), ask once before executing.
-${toolCatalog}${skillsText}`;
+${toolCatalog}${skillsText}${systemPromptAppendix ? '\n\n## Client-specific instructions\n\n' + systemPromptAppendix : ''}`;
 }
 
 // Compress older tool result messages to avoid accumulating huge contexts across iterations
@@ -252,7 +252,7 @@ async function* runAnthropicLoop(apiKey, model, messages, systemPrompt, onToolUs
     while (!signal?.aborted) {
         const res = await fetch(LLM_PROXY, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json', 'X-API-Key': apiKey, 'X-LLM-Provider': 'anthropic'},
+            headers: {'Content-Type': 'application/json', 'X-LLM-Provider': 'anthropic'},
             body: JSON.stringify({
                 model,
                 max_tokens: maxTokens,
@@ -376,7 +376,7 @@ async function* runOpenAILoop(apiKey, model, messages, systemPrompt, onToolUse, 
     while (!signal?.aborted) {
         const res = await fetch(LLM_PROXY, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json', 'X-API-Key': apiKey, 'X-LLM-Provider': provider},
+            headers: {'Content-Type': 'application/json', 'X-LLM-Provider': provider},
             body: JSON.stringify({model, messages: currentMessages, tools, stream: true, max_tokens: maxTokens, stream_options: {include_usage: true}}),
             signal
         });
@@ -479,7 +479,7 @@ function saveHistory(messages) {
     } catch {}
 }
 
-export function useMcpChat(settings, mcpTools, siteKey) {
+export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
     const [messages, setMessages] = useState(loadHistory);
     const [isStreaming, setIsStreaming] = useState(false);
     const abortRef = useRef(null);
@@ -495,11 +495,19 @@ export function useMcpChat(settings, mcpTools, siteKey) {
         const controller = new AbortController();
         abortRef.current = controller;
 
+        // Resolve effective values: user preference overrides OSGi default
+        const mcpEndpoint   = osgiConfig.mcpEndpoint || 'http://localhost:8080/modules/mcp';
+        const provider      = (settings.llmProvider && osgiConfig.availableProviders?.includes(settings.llmProvider))
+                                ? settings.llmProvider
+                                : osgiConfig.defaultProvider || 'anthropic';
+        const model         = settings.selectedModel || osgiConfig.defaultModel || 'claude-sonnet-4-6';
+        const maxTokens     = settings.maxTokens || osgiConfig.maxTokens || 4096;
+
         const onToolUse = async (id, name, input) => {
-            if (!settings.mcpEndpoint) return {error: 'MCP endpoint not configured'};
+            if (!mcpEndpoint) return {error: 'MCP endpoint not configured'};
             try {
                 if (name === 'mcp_call') {
-                    return await callMcpTool(settings.mcpEndpoint, settings.mcpToken, input.tool, input.params);
+                    return await callMcpTool(mcpEndpoint, settings.mcpToken, input.tool, input.params);
                 }
             } catch (err) {
                 return {error: err.message};
@@ -507,7 +515,7 @@ export function useMcpChat(settings, mcpTools, siteKey) {
             return {error: `Unknown tool: ${name}`};
         };
 
-        const systemPrompt = buildSystemPrompt(settings.mcpEndpoint, settings.skills || [], mcpTools, siteKey);
+        const systemPrompt = buildSystemPrompt(mcpEndpoint, settings.skills || [], mcpTools, siteKey, osgiConfig.systemPromptAppendix || '');
 
         // Keep last 20 messages; truncate old text content to save tokens
         const trimmedHistory = history.slice(-20).map((m, i, arr) => {
@@ -524,11 +532,10 @@ export function useMcpChat(settings, mcpTools, siteKey) {
         setMessages(prev => [...prev, {role: 'assistant', content: '', streaming: true}]);
 
         try {
-            const maxTokens = settings.maxTokens || 4096;
-            const useOpenAICompat = settings.llmProvider === 'openai' || settings.llmProvider === 'deepseek';
+            const useOpenAICompat = provider === 'openai' || provider === 'deepseek';
             const stream = useOpenAICompat
-                ? runOpenAILoop(settings.llmApiKey, settings.selectedModel, trimmedHistory, systemPrompt, onToolUse, controller.signal, settings.llmProvider, maxTokens)
-                : runAnthropicLoop(settings.llmApiKey, settings.selectedModel, trimmedHistory, systemPrompt, onToolUse, controller.signal, maxTokens);
+                ? runOpenAILoop(null, model, trimmedHistory, systemPrompt, onToolUse, controller.signal, provider, maxTokens)
+                : runAnthropicLoop(null, model, trimmedHistory, systemPrompt, onToolUse, controller.signal, maxTokens);
 
             for await (const event of stream) {
                 if (controller.signal.aborted) break;

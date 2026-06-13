@@ -30,7 +30,8 @@
         "model": "Modèle",
         "apiKey": "Clé API",
         "apiKeyPlaceholder": "sk-...",
-        "maxTokens": "Tokens de sortie max"
+        "maxTokens": "Tokens de sortie max",
+        "noProviders": "Aucun fournisseur LLM configuré. Ajoutez des clés API dans la configuration OSGi."
     },
     "modelSelector": {
         "label": "Modèle",

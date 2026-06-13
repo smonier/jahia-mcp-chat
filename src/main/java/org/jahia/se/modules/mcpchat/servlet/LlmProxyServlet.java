@@ -1,6 +1,8 @@
 package org.jahia.se.modules.mcpchat.servlet;
 
+import org.jahia.se.modules.mcpchat.config.McpChatConfigService;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,10 +18,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.stream.Collectors;
 
 /**
- * Proxies LLM API requests (Anthropic, OpenAI) server-side to avoid browser CORS restrictions.
- * Served at /modules/jahia-mcp-chat/llm-proxy — alias=/jahia-mcp-chat/llm-proxy maps under
- * Jahia's /modules/ prefix. allow-api-token=true bypasses Jahia's locale filter.
- * API key: X-API-Key header. Provider: X-LLM-Provider header (anthropic|openai).
+ * Proxies LLM API requests server-side to avoid browser CORS restrictions.
+ * API keys are read from McpChatConfigService (OSGi cfg) — they are never
+ * sent from the browser. Provider is identified by the X-LLM-Provider header.
  */
 @Component(
         service = {HttpServlet.class, Servlet.class},
@@ -32,6 +33,9 @@ public class LlmProxyServlet extends HttpServlet {
     private static final String ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
     private static final String OPENAI_URL    = "https://api.openai.com/v1/chat/completions";
     private static final String DEEPSEEK_URL  = "https://api.deepseek.com/v1/chat/completions";
+
+    @Reference
+    private McpChatConfigService configService;
 
     @Override
     protected void doOptions(HttpServletRequest req, HttpServletResponse res) {
@@ -53,10 +57,11 @@ public class LlmProxyServlet extends HttpServlet {
         cors(res);
 
         String provider = req.getHeader("X-LLM-Provider");
-        String apiKey   = req.getHeader("X-API-Key");
+        String apiKey   = configService.getApiKeyForProvider(provider);
 
-        if (apiKey == null || apiKey.isBlank()) {
-            res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing X-API-Key header");
+        if (apiKey.isBlank()) {
+            res.sendError(HttpServletResponse.SC_FORBIDDEN,
+                    "No API key configured for provider: " + provider);
             return;
         }
 
@@ -68,6 +73,7 @@ public class LlmProxyServlet extends HttpServlet {
         } else {
             targetUrl = ANTHROPIC_URL;
         }
+
         String body = req.getReader().lines().collect(Collectors.joining("\n"));
 
         HttpURLConnection conn = (HttpURLConnection) new URL(targetUrl).openConnection();
@@ -83,7 +89,6 @@ public class LlmProxyServlet extends HttpServlet {
             conn.setRequestProperty("anthropic-version", "2023-06-01");
             conn.setRequestProperty("anthropic-beta", "messages-2023-12-15");
         } else {
-            // OpenAI and DeepSeek both use Bearer auth
             conn.setRequestProperty("Authorization", "Bearer " + apiKey);
         }
 
@@ -99,9 +104,7 @@ public class LlmProxyServlet extends HttpServlet {
         res.setHeader("X-Accel-Buffering", "no");
 
         InputStream upstream = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
-        if (upstream == null) {
-            return;
-        }
+        if (upstream == null) return;
 
         try (InputStream in = upstream; OutputStream out = res.getOutputStream()) {
             byte[] buf = new byte[4096];
@@ -120,6 +123,6 @@ public class LlmProxyServlet extends HttpServlet {
     private void cors(HttpServletResponse res) {
         res.setHeader("Access-Control-Allow-Origin", "*");
         res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-API-Key, X-LLM-Provider");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-LLM-Provider");
     }
 }

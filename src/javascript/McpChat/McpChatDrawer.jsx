@@ -3,6 +3,7 @@ import {useSelector} from 'react-redux';
 import {useTranslation} from 'react-i18next';
 import {fetchMcpTools, useMcpChat} from './useMcpChat';
 import {useSettings} from './useSettings';
+import {useConfig} from './useConfig';
 import {ChatMessage} from './ChatMessage';
 import {McpSettings} from './McpSettings';
 import styles from './McpChatDrawer.module.css';
@@ -10,22 +11,24 @@ import styles from './McpChatDrawer.module.css';
 export function McpChatDrawer({isOpen, onClose}) {
     const {t} = useTranslation('jahia-mcp-chat');
     const {settings, updateSettings, addSkill, removeSkill} = useSettings();
+    const {config, configLoaded} = useConfig();
     const siteKey = useSelector(state => state.site);
     const [mcpTools, setMcpTools] = useState([]);
     const [toolsLoading, setToolsLoading] = useState(false);
-    const {messages, isStreaming, sendMessage, stopStreaming, clearMessages} = useMcpChat(settings, mcpTools, siteKey);
+    const {messages, isStreaming, sendMessage, stopStreaming, clearMessages} = useMcpChat(settings, mcpTools, siteKey, config);
     const [input, setInput] = useState('');
     const [showSettings, setShowSettings] = useState(false);
     const messagesEndRef = useRef(null);
     const textareaRef = useRef(null);
 
+    const mcpEndpoint = config.mcpEndpoint;
     const loadTools = useCallback(async () => {
-        if (!settings.mcpEndpoint || !settings.mcpToken) return;
+        if (!mcpEndpoint || !settings.mcpToken) return;
         setToolsLoading(true);
-        const tools = await fetchMcpTools(settings.mcpEndpoint, settings.mcpToken);
+        const tools = await fetchMcpTools(mcpEndpoint, settings.mcpToken);
         setMcpTools(tools);
         setToolsLoading(false);
-    }, [settings.mcpEndpoint, settings.mcpToken]);
+    }, [mcpEndpoint, settings.mcpToken]);
 
     // Fetch tool list whenever the drawer opens or MCP credentials change
     useEffect(() => {
@@ -137,6 +140,7 @@ export function McpChatDrawer({isOpen, onClose}) {
                 {showSettings && (
                     <McpSettings
                         settings={settings}
+                        config={config}
                         onUpdate={updateSettings}
                         onAddSkill={addSkill}
                         onRemoveSkill={removeSkill}

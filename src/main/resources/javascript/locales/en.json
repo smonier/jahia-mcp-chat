@@ -30,7 +30,8 @@
         "model": "Model",
         "apiKey": "API Key",
         "apiKeyPlaceholder": "sk-ant-... or sk-...",
-        "maxTokens": "Max output tokens"
+        "maxTokens": "Max output tokens",
+        "noProviders": "No LLM providers configured. Add API keys in the OSGi configuration."
     },
     "modelSelector": {
         "label": "Model",
