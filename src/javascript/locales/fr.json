@@ -15,7 +15,9 @@
         "placeholder": "Posez votre question… (Entrée pour envoyer, Maj+Entrée pour saut de ligne)",
         "label": "Saisie du message",
         "send": "Envoyer",
-        "stop": "Arrêter"
+        "stop": "Arrêter",
+        "attach": "Joindre un fichier",
+        "removeAttachment": "Supprimer {{name}}"
     },
     "settings": {
         "title": "Paramètres",

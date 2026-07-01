@@ -147,6 +147,16 @@ export function ChatMessage({message}) {
                 {message.content && (
                     <MessageText text={message.content} streaming={message.streaming} />
                 )}
+                {message.attachments?.length > 0 && (
+                    <div className={styles.attachmentChips}>
+                        {message.attachments.map((att, i) => (
+                            <span key={i} className={styles.attachmentChip} title={att.name}>
+                                <span aria-hidden="true">{att.kind === 'image' ? '🖼' : '📄'}</span>
+                                {att.name}
+                            </span>
+                        ))}
+                    </div>
+                )}
                 {isEmpty && message.streaming && (
                     <div className={styles.bubble}>
                         <div className={styles.typingDots} aria-label="typing">

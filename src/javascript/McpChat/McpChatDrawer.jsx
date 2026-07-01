@@ -8,6 +8,28 @@ import {ChatMessage} from './ChatMessage';
 import {McpSettings} from './McpSettings';
 import styles from './McpChatDrawer.module.css';
 
+const TEXT_EXTENSIONS = /\.(md|txt|csv|json|xml|yaml|yml|ts|tsx|js|jsx|css|html|htm|sql|sh|py|java|c|cpp|h|rs|go|rb|php)$/i;
+
+function readFile(file) {
+    return new Promise(resolve => {
+        const reader = new FileReader();
+        const isImage = file.type.startsWith('image/');
+        const isText = file.type.startsWith('text/') ||
+            ['application/json', 'application/xml', 'application/javascript'].includes(file.type) ||
+            TEXT_EXTENSIONS.test(file.name);
+        if (isImage) {
+            reader.onload = e => resolve({name: file.name, type: file.type, size: file.size, kind: 'image', data: e.target.result.split(',')[1]});
+            reader.readAsDataURL(file);
+        } else if (isText) {
+            reader.onload = e => resolve({name: file.name, type: file.type || 'text/plain', size: file.size, kind: 'text', text: e.target.result});
+            reader.readAsText(file);
+        } else {
+            reader.onload = e => resolve({name: file.name, type: file.type, size: file.size, kind: 'binary', data: e.target.result.split(',')[1]});
+            reader.readAsDataURL(file);
+        }
+    });
+}
+
 export function McpChatDrawer({isOpen, onClose}) {
     const {t} = useTranslation('jahia-mcp-chat');
     const {settings, updateSettings, addSkill, removeSkill} = useSettings();
@@ -17,9 +39,11 @@ export function McpChatDrawer({isOpen, onClose}) {
     const [toolsLoading, setToolsLoading] = useState(false);
     const {messages, isStreaming, sendMessage, stopStreaming, clearMessages} = useMcpChat(settings, mcpTools, siteKey, config);
     const [input, setInput] = useState('');
+    const [attachments, setAttachments] = useState([]);
     const [showSettings, setShowSettings] = useState(false);
     const messagesEndRef = useRef(null);
     const textareaRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     const mcpEndpoint = config.mcpEndpoint;
     const loadTools = useCallback(async () => {
@@ -47,11 +71,23 @@ export function McpChatDrawer({isOpen, onClose}) {
         }
     }, [isOpen]);
 
+    const handleFileChange = async e => {
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
+        const read = await Promise.all(files.map(readFile));
+        setAttachments(prev => [...prev, ...read]);
+        e.target.value = '';
+    };
+
+    const removeAttachment = index => setAttachments(prev => prev.filter((_, i) => i !== index));
+
     const handleSend = () => {
         const text = input.trim();
-        if (!text) return;
+        if (!text && attachments.length === 0) return;
+        const toSend = attachments;
         setInput('');
-        sendMessage(text);
+        setAttachments([]);
+        sendMessage(text, toSend);
         setShowSettings(false);
     };
 
@@ -178,29 +214,66 @@ export function McpChatDrawer({isOpen, onClose}) {
 
                 {/* Input */}
                 <div className={styles.inputArea}>
-                    <textarea
-                        ref={textareaRef}
-                        className={styles.textarea}
-                        value={input}
-                        onChange={e => setInput(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder={t('input.placeholder')}
-                        disabled={isStreaming}
-                        rows={3}
-                        aria-label={t('input.label')}
-                    />
-                    <button
-                        className={`${styles.sendBtn} ${isStreaming ? styles.sendBtnStop : ''}`}
-                        onClick={isStreaming ? stopStreaming : handleSend}
-                        disabled={!isStreaming && !input.trim()}
-                        aria-label={isStreaming ? t('input.stop') : t('input.send')}
-                        title={isStreaming ? t('input.stop') : t('input.send')}
-                    >
-                        {isStreaming
-                            ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
-                            : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-                        }
-                    </button>
+                    {attachments.length > 0 && (
+                        <div className={styles.attachmentList}>
+                            {attachments.map((att, i) => (
+                                <div key={i} className={styles.attachmentChip}>
+                                    <span aria-hidden="true">{att.kind === 'image' ? '🖼' : '📄'}</span>
+                                    <span className={styles.attachmentName} title={att.name}>{att.name}</span>
+                                    <button
+                                        className={styles.attachmentRemove}
+                                        onClick={() => removeAttachment(i)}
+                                        aria-label={t('input.removeAttachment', {name: att.name})}
+                                        type="button"
+                                    >×</button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <div className={styles.inputRow}>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            className={styles.fileInput}
+                            onChange={handleFileChange}
+                            aria-hidden="true"
+                            tabIndex={-1}
+                        />
+                        <button
+                            className={styles.attachBtn}
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isStreaming}
+                            title={t('input.attach')}
+                            aria-label={t('input.attach')}
+                            type="button"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 015 0v10.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5V6H9v9.5a3.5 3.5 0 007 0V5c0-2.76-2.24-5-5-5S6 2.24 6 5v12.5c0 3.87 3.13 7 7 7s7-3.13 7-7V6h-3.5z"/></svg>
+                        </button>
+                        <textarea
+                            ref={textareaRef}
+                            className={styles.textarea}
+                            value={input}
+                            onChange={e => setInput(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            placeholder={t('input.placeholder')}
+                            disabled={isStreaming}
+                            rows={3}
+                            aria-label={t('input.label')}
+                        />
+                        <button
+                            className={`${styles.sendBtn} ${isStreaming ? styles.sendBtnStop : ''}`}
+                            onClick={isStreaming ? stopStreaming : handleSend}
+                            disabled={!isStreaming && !input.trim() && attachments.length === 0}
+                            aria-label={isStreaming ? t('input.stop') : t('input.send')}
+                            title={isStreaming ? t('input.stop') : t('input.send')}
+                        >
+                            {isStreaming
+                                ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+                                : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                            }
+                        </button>
+                    </div>
                 </div>
             </aside>
         </>

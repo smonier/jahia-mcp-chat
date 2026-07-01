@@ -299,12 +299,102 @@
 /* Input area */
 .inputArea {
     display: flex;
-    gap: 8px;
+    flex-direction: column;
+    gap: 6px;
     padding: 12px;
     border-top: 1px solid #0f3460;
     background: #16213e;
     flex-shrink: 0;
+}
+
+.inputRow {
+    display: flex;
+    gap: 8px;
     align-items: flex-end;
+}
+
+/* File upload */
+.fileInput {
+    display: none;
+}
+
+.uploadButton {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid #2a4a7f;
+    background: #0f1a35;
+    color: #8899bb;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    padding: 0;
+}
+
+.uploadButton:hover:not(:disabled) {
+    background: #162240;
+    border-color: #a8c7fa;
+    color: #a8c7fa;
+}
+
+.uploadButton:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* Attachment chips */
+.attachmentList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 0 2px;
+}
+
+.attachmentChip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #0f3460;
+    border: 1px solid #2a4a7f;
+    border-radius: 6px;
+    padding: 3px 6px 3px 7px;
+    font-size: 11px;
+    color: #c8d8f0;
+    max-width: 200px;
+}
+
+.attachmentIcon {
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+.attachmentName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 130px;
+}
+
+.attachmentRemove {
+    background: none;
+    border: none;
+    color: #6677aa;
+    cursor: pointer;
+    padding: 0 1px;
+    font-size: 15px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.1s;
+    display: flex;
+    align-items: center;
+}
+
+.attachmentRemove:hover {
+    color: #f7768e;
 }
 
 .textarea {

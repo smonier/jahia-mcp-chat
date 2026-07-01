@@ -15,7 +15,9 @@
         "placeholder": "Ask anything… (Enter to send, Shift+Enter for new line)",
         "label": "Message input",
         "send": "Send",
-        "stop": "Stop"
+        "stop": "Stop",
+        "attach": "Attach file",
+        "removeAttachment": "Remove {{name}}"
     },
     "settings": {
         "title": "Settings",

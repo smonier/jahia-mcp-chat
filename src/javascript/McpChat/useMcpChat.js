@@ -485,15 +485,48 @@ function saveHistory(messages) {
     } catch {}
 }
 
+function buildLlmContent(userText, attachments, useOpenAIFormat) {
+    if (!attachments || attachments.length === 0) return userText || '';
+
+    const blocks = [];
+    if (userText) blocks.push({type: 'text', text: userText});
+
+    for (const att of attachments) {
+        if (att.kind === 'image') {
+            if (useOpenAIFormat) {
+                blocks.push({type: 'image_url', image_url: {url: `data:${att.type};base64,${att.data}`}});
+            } else {
+                blocks.push({type: 'image', source: {type: 'base64', media_type: att.type, data: att.data}});
+            }
+        } else if (att.kind === 'text') {
+            const ext = att.name.split('.').pop() || '';
+            blocks.push({type: 'text', text: `\n\n--- File: ${att.name} ---\n\`\`\`${ext}\n${att.text}\n\`\`\`\n---`});
+        } else {
+            blocks.push({type: 'text', text: `\n\n[Attached file: ${att.name} (${att.type}) — binary content not included]`});
+        }
+    }
+
+    if (blocks.length === 1 && blocks[0].type === 'text') return blocks[0].text;
+    return blocks;
+}
+
 export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
     const [messages, setMessages] = useState(loadHistory);
     const [isStreaming, setIsStreaming] = useState(false);
     const abortRef = useRef(null);
 
-    const sendMessage = useCallback(async userText => {
-        if (!userText.trim() || isStreaming) return;
+    const sendMessage = useCallback(async (userText, attachments = []) => {
+        const effectiveText = userText || '';
+        if (!effectiveText.trim() && (!attachments || attachments.length === 0)) return;
+        if (isStreaming) return;
 
-        const userMsg = {role: 'user', content: userText};
+        const userMsg = {
+            role: 'user',
+            content: effectiveText,
+            attachments: attachments?.length > 0
+                ? attachments.map(({name, type, size, kind}) => ({name, type, size, kind}))
+                : undefined
+        };
         const history = [...messages, userMsg];
         setMessages(history);
         setIsStreaming(true);
@@ -508,6 +541,7 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
                                 : osgiConfig.defaultProvider || 'anthropic';
         const model         = settings.selectedModel || osgiConfig.defaultModel || 'claude-sonnet-4-6';
         const maxTokens     = settings.maxTokens || osgiConfig.maxTokens || 4096;
+        const useOpenAICompat = provider === 'openai' || provider === 'deepseek';
 
         // User's personal token takes priority; fall back to the server-configured JWT token
         const mcpToken = settings.mcpToken || osgiConfig.mcpToken || '';
@@ -527,7 +561,12 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
         const systemPrompt = buildSystemPrompt(mcpEndpoint, settings.skills || [], mcpTools, siteKey, osgiConfig.systemPromptAppendix || '');
 
         // Keep last 20 messages; truncate old text content to save tokens
+        // For the last (current) user message, build multi-modal content with any attachments
         const trimmedHistory = history.slice(-20).map((m, i, arr) => {
+            const isLast = i === arr.length - 1;
+            if (isLast && m.role === 'user') {
+                return {role: m.role, content: buildLlmContent(m.content, attachments, useOpenAICompat)};
+            }
             const isRecent = i >= arr.length - 4;
             if (isRecent || typeof m.content !== 'string') return m;
             return {...m, content: m.content.length > 400 ? m.content.slice(0, 400) + ' [truncated]' : m.content};
@@ -541,7 +580,6 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
         setMessages(prev => [...prev, {role: 'assistant', content: '', streaming: true}]);
 
         try {
-            const useOpenAICompat = provider === 'openai' || provider === 'deepseek';
             const stream = useOpenAICompat
                 ? runOpenAILoop(null, model, trimmedHistory, systemPrompt, onToolUse, controller.signal, provider, maxTokens)
                 : runAnthropicLoop(null, model, trimmedHistory, systemPrompt, onToolUse, controller.signal, maxTokens);

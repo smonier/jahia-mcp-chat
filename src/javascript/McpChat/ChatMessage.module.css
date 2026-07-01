@@ -215,3 +215,28 @@
     color: #b0b7bf;
     font-weight: 500;
 }
+
+/* Attachment chips on user messages */
+.attachmentChips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: flex-end;
+    margin-top: 2px;
+}
+
+.attachmentChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: #d4e9f8;
+    border: 1px solid #bdd9f0;
+    border-radius: 5px;
+    padding: 2px 6px;
+    font-size: 10.5px;
+    color: #004781;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
