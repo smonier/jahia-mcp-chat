@@ -7,37 +7,7 @@ import {ModelSelector} from './ModelSelector';
 import {McpSettings} from './McpSettings';
 import styles from './McpChat.module.css';
 
-const TEXT_EXTENSIONS = /\.(md|txt|csv|json|xml|yaml|yml|ts|tsx|js|jsx|css|html|htm|sql|sh|py|java|c|cpp|h|rs|go|rb|php)$/i;
-
-function readFile(file) {
-    return new Promise(resolve => {
-        const reader = new FileReader();
-        const isImage = file.type.startsWith('image/');
-        const isText = file.type.startsWith('text/') ||
-            ['application/json', 'application/xml', 'application/javascript'].includes(file.type) ||
-            TEXT_EXTENSIONS.test(file.name);
-
-        if (isImage) {
-            reader.onload = e => resolve({
-                name: file.name, type: file.type, size: file.size, kind: 'image',
-                data: e.target.result.split(',')[1]
-            });
-            reader.readAsDataURL(file);
-        } else if (isText) {
-            reader.onload = e => resolve({
-                name: file.name, type: file.type || 'text/plain', size: file.size, kind: 'text',
-                text: e.target.result
-            });
-            reader.readAsText(file);
-        } else {
-            reader.onload = e => resolve({
-                name: file.name, type: file.type, size: file.size, kind: 'binary',
-                data: e.target.result.split(',')[1]
-            });
-            reader.readAsDataURL(file);
-        }
-    });
-}
+import {readFile} from './fileAttachments';
 
 export function McpChatPanel() {
     const {t} = useTranslation('jahia-mcp-chat');
