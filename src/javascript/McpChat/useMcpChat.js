@@ -14,6 +14,19 @@ const MCP_TOOL_DEFINITIONS = [
             },
             required: ['tool']
         }
+    },
+    {
+        name: 'upload_attachment',
+        description: 'Upload a file the user attached to the CURRENT chat message into the Jahia DAM (/sites/<siteKey>/files/<folder>). The chat client holds the file bytes and performs the upload itself (media.upload ticket flow). Returns the JCR path of the created file node — use it as the value of image/file weakreference properties when creating content.',
+        input_schema: {
+            type: 'object',
+            properties: {
+                attachmentName: {type: 'string', description: 'Exact file name of an attachment on the current user message'},
+                siteKey: {type: 'string', description: 'Target site key'},
+                folder: {type: 'string', description: 'Folder under /sites/<siteKey>/files (created if missing). Defaults to "chat-uploads".'}
+            },
+            required: ['attachmentName', 'siteKey']
+        }
     }
 ];
 
@@ -36,6 +49,64 @@ async function mcpJsonRpc(mcpEndpoint, mcpToken, method, params) {
 
 async function callMcpTool(mcpEndpoint, mcpToken, toolName, params) {
     return mcpJsonRpc(mcpEndpoint, mcpToken, 'tools/call', {name: toolName, arguments: params || {}});
+}
+
+function base64ToBytes(b64) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+}
+
+// Browser-side DAM upload of a chat attachment: the LLM cannot move binary
+// data, but the chat client holds the attached bytes AND talks to the MCP
+// server — so the upload (media.upload.create ticket -> PUT -> finalize) runs
+// locally and only the resulting JCR path goes back to the model.
+async function uploadAttachment(mcpEndpoint, mcpToken, input, attachments) {
+    const att = (attachments || []).find(a => a.name === input.attachmentName);
+    if (!att) {
+        const names = (attachments || []).map(a => a.name).join(', ') || '(none)';
+        return {error: `No attachment named "${input.attachmentName}" on the current message. Available: ${names}`};
+    }
+    if (!att.data) {
+        return {error: `Attachment "${att.name}" carries no binary data (kind: ${att.kind}). Only image/binary attachments can be uploaded.`};
+    }
+    const folder = input.folder || 'chat-uploads';
+    const bytes = base64ToBytes(att.data);
+    const mimeType = att.type || 'application/octet-stream';
+
+    // The DAM folder must exist before finalize (locale required even for folders)
+    try {
+        await callMcpTool(mcpEndpoint, mcpToken, 'content.create', {
+            parentPath: `/sites/${input.siteKey}/files`,
+            name: folder, nodeType: 'jnt:folder', locale: 'en'
+        });
+    } catch {} // already there
+
+    const ticketRes = unwrapMcpResult(await callMcpTool(mcpEndpoint, mcpToken, 'media.upload.create', {
+        siteKey: input.siteKey, folder,
+        fileName: att.name, mimeType, sizeBytes: bytes.length
+    }));
+    const uploadUrl = ticketRes.uploadUrl || ticketRes.url;
+    const token = ticketRes.token;
+    if (!uploadUrl || !token) return {error: `Unexpected media.upload.create reply: ${JSON.stringify(ticketRes)}`};
+
+    const putUrl = new URL(uploadUrl, mcpEndpoint).toString();
+    const putRes = await fetch(putUrl, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+            'Content-Type': mimeType,
+            ...(mcpToken ? {'Authorization': `APIToken ${mcpToken}`} : {})
+        },
+        body: bytes
+    });
+    if (!putRes.ok) return {error: `Upload PUT failed: HTTP ${putRes.status}`};
+
+    const fin = unwrapMcpResult(await callMcpTool(mcpEndpoint, mcpToken, 'media.upload.finalize', {token}));
+    const path = fin.path || fin.nodePath;
+    if (!path) return {error: `Unexpected media.upload.finalize reply: ${JSON.stringify(fin)}`};
+    return rewrap({uploaded: att.name, path, sizeBytes: bytes.length});
 }
 
 // Extract the inner JSON payload from an MCP text-envelope result
@@ -208,6 +279,10 @@ ${siteCtx}
 For ANY request that involves the Jahia site — listing content, creating nodes, checking pages, reading configuration, anything — you MUST call \`mcp_call\` immediately. Do not answer from memory or training data. Do not describe what you are about to do. Call the tool first, then respond based on what it returns.
 
 The only exception is a purely conversational message with no site action needed (e.g. "thanks", "what is a CND file?").
+
+## Attachments
+- Files the user attaches to their message arrive inline (Word documents are pre-converted to HTML — their headings/tables reflect the original structure).
+- To place an attached image or binary file into the site's media library, call \`upload_attachment\` with its exact file name and the target siteKey. It returns the JCR path of the created file node — use that path as the value of image/file weakreference properties when creating content. Upload each image BEFORE creating the content that references it.
 
 ## Behavior
 - Chain tool calls automatically — keep going until the task is fully done without waiting for the user.
@@ -485,24 +560,31 @@ function saveHistory(messages) {
     } catch {}
 }
 
-function buildLlmContent(userText, attachments, useOpenAIFormat) {
+function buildLlmContent(userText, attachments, useOpenAIFormat, supportsVision = true) {
     if (!attachments || attachments.length === 0) return userText || '';
 
     const blocks = [];
     if (userText) blocks.push({type: 'text', text: userText});
 
     for (const att of attachments) {
+        const kb = Math.max(1, Math.round((att.size || 0) / 1024));
         if (att.kind === 'image') {
-            if (useOpenAIFormat) {
-                blocks.push({type: 'image_url', image_url: {url: `data:${att.type};base64,${att.data}`}});
-            } else {
-                blocks.push({type: 'image', source: {type: 'base64', media_type: att.type, data: att.data}});
+            // Vision block only for providers that accept images (DeepSeek
+            // rejects the image_url content variant with a 400); every
+            // provider gets the name note so upload_attachment stays usable.
+            if (supportsVision) {
+                if (useOpenAIFormat) {
+                    blocks.push({type: 'image_url', image_url: {url: `data:${att.type};base64,${att.data}`}});
+                } else {
+                    blocks.push({type: 'image', source: {type: 'base64', media_type: att.type, data: att.data}});
+                }
             }
+            blocks.push({type: 'text', text: `\n[Image attached: "${att.name}" (${att.type}, ${kb} KB) — can be pushed to the site DAM with the upload_attachment tool]`});
         } else if (att.kind === 'text') {
             const ext = att.name.split('.').pop() || '';
             blocks.push({type: 'text', text: `\n\n--- File: ${att.name} ---\n\`\`\`${ext}\n${att.text}\n\`\`\`\n---`});
         } else {
-            blocks.push({type: 'text', text: `\n\n[Attached file: ${att.name} (${att.type}) — binary content not included]`});
+            blocks.push({type: 'text', text: `\n\n[Attached file: "${att.name}" (${att.type}, ${kb} KB) — binary content not shown, but it can be pushed to the site DAM with the upload_attachment tool]`});
         }
     }
 
@@ -552,6 +634,10 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
                 if (name === 'mcp_call') {
                     return await callMcpTool(mcpEndpoint, mcpToken, input.tool, input.params);
                 }
+                if (name === 'upload_attachment') {
+                    // executed locally: the browser holds the attachment bytes
+                    return await uploadAttachment(mcpEndpoint, mcpToken, input, attachments);
+                }
             } catch (err) {
                 return {error: err.message};
             }
@@ -565,7 +651,7 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
         const trimmedHistory = history.slice(-20).map((m, i, arr) => {
             const isLast = i === arr.length - 1;
             if (isLast && m.role === 'user') {
-                return {role: m.role, content: buildLlmContent(m.content, attachments, useOpenAICompat)};
+                return {role: m.role, content: buildLlmContent(m.content, attachments, useOpenAICompat, provider !== 'deepseek')};
             }
             const isRecent = i >= arr.length - 4;
             if (isRecent || typeof m.content !== 'string') return m;
