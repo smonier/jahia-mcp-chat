@@ -25,7 +25,6 @@ function register() {
             '</svg>'
         ),
         buttonLabel: `${NS}:action.open`,
-        requireModuleInstalledOnSite: NS,
         component: McpChatAction
     });
 }

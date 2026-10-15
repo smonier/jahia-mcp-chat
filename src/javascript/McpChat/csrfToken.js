@@ -1,18 +1,13 @@
 /**
- * Jahia CSRF guard client (jahia-csrf-guard 4.x).
+ * Jahia CSRF guard client (jahia-csrf-guard 4.x, servlets under /modules).
  *
- * The guard protects /modules/jahia-mcp-chat/* for signed-in users.
- * Every fetch to those paths must carry:
- *   X-Requested-With: XMLHttpRequest
- *   CSRFTOKEN: <master or per-URI token>
+ * Flow (verified 2026-10-15, jahia-csrf-guard 4.3.0):
+ *   1. GET /modules/CsrfServlet  → master token
+ *   2. POST /modules/CsrfServlet with master token → per-URI page tokens
+ *   3. Use per-URI token for each protected fetch (master is refused ~2s after first use)
+ *   4. On 302 refusal, all session tokens rotate — must reload from step 1
  *
- * The master token is embedded in /modules/CsrfServlet's JS response.
- * A first request with the master token creates a per-URI token returned
- * in the CSRFTOKEN response header. Subsequent requests should use the
- * per-URI token (master token is accepted ~2 s after URI token creation).
- * A refused request (302 /error.html) rotates all tokens of the session.
- *
- * Reference: efficy-jahia csrfGuard.ts
+ * Reference: jahia-frontend-backend-patterns.md "CSRF for a servlet under /modules"
  */
 
 const MASTER_TOKEN_RE =
@@ -20,44 +15,49 @@ const MASTER_TOKEN_RE =
 
 const ctx = () => window.contextJsParameters?.contextPath || '';
 
-// Cache: { tokenName, masterToken, pageTokens: {uri -> token}, loadedAt }
+// { tokenName, pageTokens: {uri -> token}, loadedAt }
 let cache = null;
+let loadPromise = null;
 
-async function loadFromGuardScript() {
-    // Prefer the already-loaded script element (jContent page injects it)
-    const scriptEl = document.querySelector('script[src*="/CsrfServlet"]');
-    const url = scriptEl
-        ? new URL(scriptEl.src, location.href).origin + new URL(scriptEl.src, location.href).pathname
-        : `${ctx()}/modules/CsrfServlet`;
+async function loadTokens() {
+    const url = `${ctx()}/modules/CsrfServlet`;
 
-    const res = await fetch(url, {credentials: 'same-origin', cache: 'no-store'});
-    if (!res.ok) return null;
-    const src = await res.text();
+    // Step 1: get master token from guard script
+    const scriptRes = await fetch(url, {credentials: 'same-origin', cache: 'no-store'});
+    if (!scriptRes.ok) return null;
+    const src = await scriptRes.text();
     const m = MASTER_TOKEN_RE.exec(src);
     if (!m) return null;
     const [, tokenName, masterToken] = m;
-    return {tokenName, masterToken, pageTokens: {}, loadedAt: Date.now()};
+
+    // Step 2: POST with master token → get per-URI page tokens for all our endpoints
+    const postRes = await fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {'X-Requested-With': 'XMLHttpRequest', [tokenName]: masterToken}
+    });
+    if (!postRes.ok) return null;
+    const json = await postRes.json();
+    const pageTokens = json.pageTokens || {};
+
+    return {tokenName, masterToken, pageTokens, loadedAt: Date.now()};
 }
 
-let loadPromise = null;
-
 async function ensureLoaded() {
-    if (cache && Date.now() - cache.loadedAt < 300_000) return cache; // 5-min TTL
+    if (cache && Date.now() - cache.loadedAt < 240_000) return cache; // 4-min TTL
     if (!loadPromise) {
-        loadPromise = loadFromGuardScript().then(c => {
+        loadPromise = loadTokens().then(c => {
             cache = c;
             loadPromise = null;
             return c;
-        }).catch(() => { loadPromise = null; return null; });
+        }).catch(() => {
+            loadPromise = null;
+            return null;
+        });
     }
     return loadPromise;
 }
 
-/**
- * Returns { tokenName, token } to include in a protected fetch.
- * The caller path (e.g. '/modules/jahia-mcp-chat/llm-proxy') is used to
- * look up a per-URI token when available.
- */
 export async function getCsrfHeaders(path) {
     const c = await ensureLoaded();
     if (!c) return {};
@@ -68,10 +68,6 @@ export async function getCsrfHeaders(path) {
     };
 }
 
-/**
- * Call after receiving a response to store the per-URI token the guard
- * returns in the response CSRFTOKEN header (avoids burning the master token).
- */
 export function storeResponseToken(path, response) {
     if (!cache || !path) return;
     const returned = response.headers?.get(cache.tokenName);
@@ -80,10 +76,7 @@ export function storeResponseToken(path, response) {
     }
 }
 
-/**
- * Mark tokens stale (e.g. after a 302 /error.html refusal from the guard).
- * The next call to getCsrfHeaders will reload from the servlet.
- */
 export function invalidateTokens() {
     cache = null;
+    loadPromise = null;
 }
