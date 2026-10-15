@@ -9,7 +9,7 @@ export const McpChatAction = ({render: Render, ...rest}) => {
     const siteKey = useSelector(state => state.site);
     const {checksResult} = useNodeChecks(
         {path: `/sites/${siteKey}`},
-        {requireModuleInstalledOnSite: ['org.jahia.se.modules.jahiaMcpChat']}
+        {requireModuleInstalledOnSite: ['jahia-mcp-chat']}
     );
 
     if (!checksResult) {

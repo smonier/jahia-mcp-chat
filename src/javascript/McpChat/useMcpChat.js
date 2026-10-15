@@ -1,6 +1,8 @@
 import {useCallback, useRef, useState} from 'react';
+import {getCsrfToken} from './csrfToken';
 
-const LLM_PROXY = '/modules/jahia-mcp-chat/llm-proxy';
+const ctx = () => window.contextJsParameters?.contextPath || '';
+const LLM_PROXY = () => `${ctx()}/modules/jahia-mcp-chat/llm-proxy`;
 
 const MCP_TOOL_DEFINITIONS = [
     {
@@ -331,9 +333,10 @@ async function* runAnthropicLoop(apiKey, model, messages, systemPrompt, onToolUs
     let currentMessages = messages.map(m => ({role: m.role, content: m.content}));
 
     while (!signal?.aborted) {
-        const res = await fetch(LLM_PROXY, {
+        const csrfToken = await getCsrfToken();
+        const res = await fetch(LLM_PROXY(), {
             method: 'POST',
-            headers: {'Content-Type': 'application/json', 'X-LLM-Provider': 'anthropic'},
+            headers: {'Content-Type': 'application/json', 'X-LLM-Provider': 'anthropic', ...(csrfToken ? {'JAHIA-CSRF-TOKEN': csrfToken} : {})},
             body: JSON.stringify({
                 model,
                 max_tokens: maxTokens,
@@ -455,9 +458,10 @@ async function* runOpenAILoop(apiKey, model, messages, systemPrompt, onToolUse, 
     ];
 
     while (!signal?.aborted) {
-        const res = await fetch(LLM_PROXY, {
+        const csrfToken = await getCsrfToken();
+        const res = await fetch(LLM_PROXY(), {
             method: 'POST',
-            headers: {'Content-Type': 'application/json', 'X-LLM-Provider': provider},
+            headers: {'Content-Type': 'application/json', 'X-LLM-Provider': provider, ...(csrfToken ? {'JAHIA-CSRF-TOKEN': csrfToken} : {})},
             body: JSON.stringify({model, messages: currentMessages, tools, stream: true, max_tokens: maxTokens, stream_options: {include_usage: true}}),
             signal
         });
@@ -625,8 +629,8 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
         const maxTokens     = settings.maxTokens || osgiConfig.maxTokens || 4096;
         const useOpenAICompat = provider === 'openai' || provider === 'deepseek';
 
-        // User's personal token takes priority; fall back to the server-configured JWT token
-        const mcpToken = settings.mcpToken || osgiConfig.mcpToken || '';
+        // Personal MCP token from user settings (empty string = rely on session cookie auth)
+        const mcpToken = settings.mcpToken || '';
 
         const onToolUse = async (id, name, input) => {
             if (!mcpEndpoint) return {error: 'MCP endpoint not configured'};
@@ -651,7 +655,11 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
         const trimmedHistory = history.slice(-20).map((m, i, arr) => {
             const isLast = i === arr.length - 1;
             if (isLast && m.role === 'user') {
-                return {role: m.role, content: buildLlmContent(m.content, attachments, useOpenAICompat, provider !== 'deepseek')};
+                // Vision blocks only for providers/models that accept them:
+                // DeepSeek's API 400s on image_url whatever provider slot it
+                // is configured under ("unknown variant `image_url`").
+                return {role: m.role, content: buildLlmContent(m.content, attachments, useOpenAICompat,
+                    provider !== 'deepseek' && !/deepseek/i.test(model))};
             }
             const isRecent = i >= arr.length - 4;
             if (isRecent || typeof m.content !== 'string') return m;

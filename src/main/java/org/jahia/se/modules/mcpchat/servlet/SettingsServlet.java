@@ -15,11 +15,14 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.Reader;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Persists per-user chat settings as a JSON blob in JCR under the current user's node.
- * Stored at: {userNode}/mcp-chat-settings (jnt:content, property: data)
+ * Persists per-user chat preferences as a JSON blob in JCR under the current user's node.
+ * Restricted to authenticated users (guests receive 401).
+ * The mcpToken field is stripped server-side before storage — tokens must not be persisted in JCR.
  *
  * GET  /modules/jahia-mcp-chat/settings  — returns stored JSON, or {} if not set
  * POST /modules/jahia-mcp-chat/settings  — saves JSON body to JCR
@@ -34,18 +37,22 @@ public class SettingsServlet extends HttpServlet {
     private static final String SETTINGS_NODE = "mcp-chat-settings";
     private static final String DATA_PROP = "data";
     private static final String NODE_TYPE = "nt:unstructured";
+    private static final int MAX_BODY_BYTES = 65_536; // 64 KB — settings are small
 
-    @Override
-    protected void doOptions(HttpServletRequest req, HttpServletResponse res) {
-        cors(res);
-        res.setStatus(HttpServletResponse.SC_OK);
-    }
+    // Strip any mcpToken value that a client might submit — tokens must not be stored in JCR
+    private static final Pattern MCP_TOKEN_PATTERN =
+            Pattern.compile("\"mcpToken\"\\s*:\\s*\"[^\"]*\"\\s*,?");
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res)
             throws ServletException, IOException {
-        cors(res);
+        res.setHeader("Cache-Control", "no-store, private");
         res.setContentType("application/json;charset=UTF-8");
+
+        if (isGuest()) {
+            res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required");
+            return;
+        }
 
         try {
             JCRSessionWrapper session = JCRSessionFactory.getInstance().getCurrentUserSession();
@@ -60,14 +67,27 @@ public class SettingsServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse res)
             throws ServletException, IOException {
-        cors(res);
+        res.setHeader("Cache-Control", "no-store, private");
         res.setContentType("application/json;charset=UTF-8");
 
-        String body = req.getReader().lines().collect(Collectors.joining("\n")).trim();
-        if (body.isEmpty()) {
-            res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Empty body");
+        if (isGuest()) {
+            res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required");
             return;
         }
+
+        String body = readBodyCapped(req);
+        if (body == null) {
+            res.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, "Request too large");
+            return;
+        }
+        body = body.trim();
+        if (body.isEmpty() || !body.startsWith("{")) {
+            res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid request");
+            return;
+        }
+
+        // Never persist any token value a client may have submitted
+        body = MCP_TOKEN_PATTERN.matcher(body).replaceAll("");
 
         try {
             JCRSessionWrapper session = JCRSessionFactory.getInstance().getCurrentUserSession();
@@ -75,7 +95,7 @@ public class SettingsServlet extends HttpServlet {
             res.getWriter().write("{\"ok\":true}");
         } catch (RepositoryException e) {
             logger.error("Failed to save MCP chat settings to JCR", e);
-            res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
+            res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
         }
     }
 
@@ -104,9 +124,28 @@ public class SettingsServlet extends HttpServlet {
         session.save();
     }
 
-    private void cors(HttpServletResponse res) {
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    private boolean isGuest() {
+        try {
+            return "guest".equals(JCRSessionFactory.getInstance().getCurrentUser().getName());
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    private String readBodyCapped(HttpServletRequest req) throws IOException {
+        int cl = req.getContentLength();
+        if (cl > MAX_BODY_BYTES) return null;
+        StringBuilder sb = new StringBuilder();
+        char[] chunk = new char[4096];
+        int total = 0;
+        try (Reader reader = req.getReader()) {
+            int n;
+            while ((n = reader.read(chunk)) != -1) {
+                total += n;
+                if (total > MAX_BODY_BYTES) return null;
+                sb.append(chunk, 0, n);
+            }
+        }
+        return sb.toString();
     }
 }

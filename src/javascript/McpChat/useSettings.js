@@ -1,11 +1,12 @@
 import {useState, useCallback, useEffect, useRef} from 'react';
+import {getCsrfToken} from './csrfToken';
 
+const ctx = () => window.contextJsParameters?.contextPath || '';
+const SETTINGS_API = () => `${ctx()}/modules/jahia-mcp-chat/settings`;
 const STORAGE_KEY = 'jahia-mcp-chat-settings';
-const SETTINGS_API = '/modules/jahia-mcp-chat/settings';
 
-// Per-user preferences only — API keys and MCP endpoint come from OSGi config
+// Per-user preferences only — API keys, tokens and MCP endpoint come from OSGi config
 const DEFAULTS = {
-    mcpToken: '',
     llmProvider: '',      // empty = use OSGi default
     selectedModel: '',    // empty = use OSGi default
     maxTokens: 0,         // 0 = use OSGi default
@@ -15,30 +16,44 @@ const DEFAULTS = {
 function loadLocal() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? {...DEFAULTS, ...JSON.parse(raw)} : {...DEFAULTS};
+        if (!raw) return {...DEFAULTS};
+        const parsed = JSON.parse(raw);
+        // Drop any legacy mcpToken that may be in localStorage
+        const {mcpToken: _dropped, ...rest} = parsed;
+        return {...DEFAULTS, ...rest};
     } catch {
         return {...DEFAULTS};
     }
 }
 
 function saveLocal(settings) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch {}
+    try {
+        const {mcpToken: _dropped, ...safe} = settings;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
+    } catch {}
 }
 
 async function fetchFromServer() {
-    const res = await fetch(SETTINGS_API, {credentials: 'include'});
+    const res = await fetch(SETTINGS_API(), {credentials: 'include'});
     if (!res.ok) throw new Error(`settings fetch ${res.status}`);
     const json = await res.json();
-    return Object.keys(json).length > 0 ? {...DEFAULTS, ...json} : null;
+    if (Object.keys(json).length === 0) return null;
+    const {mcpToken: _dropped, ...safe} = json;
+    return {...DEFAULTS, ...safe};
 }
 
 async function saveToServer(settings) {
-    const {skills, ...rest} = settings;
-    await fetch(SETTINGS_API, {
+    // Never send mcpToken or skills to the server
+    const {mcpToken: _token, skills: _skills, ...payload} = settings;
+    const csrfToken = await getCsrfToken();
+    await fetch(SETTINGS_API(), {
         method: 'POST',
         credentials: 'include',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(rest)
+        headers: {
+            'Content-Type': 'application/json',
+            ...(csrfToken ? {'JAHIA-CSRF-TOKEN': csrfToken} : {})
+        },
+        body: JSON.stringify(payload)
     });
 }
 

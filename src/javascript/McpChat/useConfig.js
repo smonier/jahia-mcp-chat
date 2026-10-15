@@ -1,6 +1,7 @@
 import {useState, useEffect} from 'react';
 
-const CONFIG_API = '/modules/jahia-mcp-chat/config';
+const ctx = () => window.contextJsParameters?.contextPath || '';
+const CONFIG_API = () => `${ctx()}/modules/jahia-mcp-chat/config`;
 
 const EMPTY_CONFIG = {
     availableProviders: [],
@@ -16,7 +17,7 @@ export function useConfig() {
     const [configLoaded, setConfigLoaded] = useState(false);
 
     useEffect(() => {
-        fetch(CONFIG_API, {credentials: 'include'})
+        fetch(CONFIG_API(), {credentials: 'include'})
             .then(r => r.ok ? r.json() : null)
             .then(data => {
                 if (data) setConfig({...EMPTY_CONFIG, ...data});

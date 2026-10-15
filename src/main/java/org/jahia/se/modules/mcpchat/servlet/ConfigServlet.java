@@ -1,6 +1,7 @@
 package org.jahia.se.modules.mcpchat.servlet;
 
 import org.jahia.se.modules.mcpchat.config.McpChatConfigService;
+import org.jahia.services.content.JCRSessionFactory;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
@@ -13,8 +14,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Exposes the non-sensitive parts of the OSGi configuration to the front-end.
- * API keys are never included — only which providers are available.
+ * Exposes non-sensitive OSGi configuration to the front-end.
+ * API keys and the MCP JWT token are never included.
+ * Open to authenticated users only (guests receive 401).
  *
  * GET /modules/jahia-mcp-chat/config
  * Response: { availableProviders, defaultProvider, defaultModel, maxTokens,
@@ -30,14 +32,14 @@ public class ConfigServlet extends HttpServlet {
     private McpChatConfigService configService;
 
     @Override
-    protected void doOptions(HttpServletRequest req, HttpServletResponse res) {
-        cors(res);
-        res.setStatus(HttpServletResponse.SC_OK);
-    }
-
-    @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
-        cors(res);
+        res.setHeader("Cache-Control", "no-store, private");
+
+        if (isGuest()) {
+            res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required");
+            return;
+        }
+
         res.setContentType("application/json;charset=UTF-8");
 
         List<String> providers = configService.getAvailableProviders();
@@ -52,26 +54,23 @@ public class ConfigServlet extends HttpServlet {
                 .replace("\n", "\\n")
                 .replace("\r", "");
 
-        String mcpToken = configService.getMcpJwtToken()
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"");
-
         res.getWriter().write(String.format(
                 "{\"availableProviders\":%s,\"defaultProvider\":\"%s\",\"defaultModel\":\"%s\"," +
-                "\"maxTokens\":%d,\"mcpEndpoint\":\"%s\",\"mcpToken\":\"%s\",\"systemPromptAppendix\":\"%s\"}",
+                "\"maxTokens\":%d,\"mcpEndpoint\":\"%s\",\"systemPromptAppendix\":\"%s\"}",
                 providersJson,
                 configService.getDefaultProvider(),
                 configService.getDefaultModel(),
                 configService.getMaxTokens(),
                 configService.getMcpEndpoint(),
-                mcpToken,
                 appendix
         ));
     }
 
-    private void cors(HttpServletResponse res) {
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    private boolean isGuest() {
+        try {
+            return "guest".equals(JCRSessionFactory.getInstance().getCurrentUser().getName());
+        } catch (Exception e) {
+            return true;
+        }
     }
 }
