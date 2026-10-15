@@ -1,5 +1,5 @@
 import {useState, useCallback, useEffect, useRef} from 'react';
-import {getCsrfToken} from './csrfToken';
+import {getCsrfHeaders, storeResponseToken} from './csrfToken';
 
 const ctx = () => window.contextJsParameters?.contextPath || '';
 const SETTINGS_API = () => `${ctx()}/modules/jahia-mcp-chat/settings`;
@@ -34,7 +34,10 @@ function saveLocal(settings) {
 }
 
 async function fetchFromServer() {
-    const res = await fetch(SETTINGS_API(), {credentials: 'include'});
+    const path = '/modules/jahia-mcp-chat/settings';
+    const csrfHdrs = await getCsrfHeaders(path);
+    const res = await fetch(SETTINGS_API(), {credentials: 'same-origin', headers: csrfHdrs});
+    storeResponseToken(path, res);
     if (!res.ok) throw new Error(`settings fetch ${res.status}`);
     const json = await res.json();
     if (Object.keys(json).length === 0) return null;
@@ -45,16 +48,15 @@ async function fetchFromServer() {
 async function saveToServer(settings) {
     // Never send mcpToken or skills to the server
     const {mcpToken: _token, skills: _skills, ...payload} = settings;
-    const csrfToken = await getCsrfToken();
-    await fetch(SETTINGS_API(), {
+    const path = '/modules/jahia-mcp-chat/settings';
+    const csrfHdrs = await getCsrfHeaders(path);
+    const res = await fetch(SETTINGS_API(), {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(csrfToken ? {'JAHIA-CSRF-TOKEN': csrfToken} : {})
-        },
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json', ...csrfHdrs},
         body: JSON.stringify(payload)
     });
+    storeResponseToken(path, res);
 }
 
 export function useSettings() {

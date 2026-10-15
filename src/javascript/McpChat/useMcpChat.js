@@ -1,5 +1,5 @@
 import {useCallback, useRef, useState} from 'react';
-import {getCsrfToken} from './csrfToken';
+import {getCsrfHeaders, storeResponseToken, invalidateTokens} from './csrfToken';
 
 const ctx = () => window.contextJsParameters?.contextPath || '';
 const LLM_PROXY = () => `${ctx()}/modules/jahia-mcp-chat/llm-proxy`;
@@ -331,12 +331,13 @@ function compressOldToolMessages(msg) {
 // Agentic loop for Anthropic: streams response, executes tool calls, continues until end_turn
 async function* runAnthropicLoop(apiKey, model, messages, systemPrompt, onToolUse, signal, maxTokens = 4096) {
     let currentMessages = messages.map(m => ({role: m.role, content: m.content}));
+    const path = '/modules/jahia-mcp-chat/llm-proxy';
 
     while (!signal?.aborted) {
-        const csrfToken = await getCsrfToken();
+        const csrfHdrs = await getCsrfHeaders(path);
         const res = await fetch(LLM_PROXY(), {
             method: 'POST',
-            headers: {'Content-Type': 'application/json', 'X-LLM-Provider': 'anthropic', ...(csrfToken ? {'JAHIA-CSRF-TOKEN': csrfToken} : {})},
+            headers: {'Content-Type': 'application/json', 'X-LLM-Provider': 'anthropic', ...csrfHdrs},
             body: JSON.stringify({
                 model,
                 max_tokens: maxTokens,
@@ -348,7 +349,11 @@ async function* runAnthropicLoop(apiKey, model, messages, systemPrompt, onToolUs
             signal
         });
 
-        if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
+        if (!res.ok) {
+            if (res.status === 302 || res.status === 403) invalidateTokens();
+            throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
+        }
+        storeResponseToken(path, res);
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
@@ -456,17 +461,22 @@ async function* runOpenAILoop(apiKey, model, messages, systemPrompt, onToolUse, 
         {role: 'system', content: systemPrompt},
         ...messages.map(m => ({role: m.role, content: m.content}))
     ];
+    const path = '/modules/jahia-mcp-chat/llm-proxy';
 
     while (!signal?.aborted) {
-        const csrfToken = await getCsrfToken();
+        const csrfHdrs = await getCsrfHeaders(path);
         const res = await fetch(LLM_PROXY(), {
             method: 'POST',
-            headers: {'Content-Type': 'application/json', 'X-LLM-Provider': provider, ...(csrfToken ? {'JAHIA-CSRF-TOKEN': csrfToken} : {})},
+            headers: {'Content-Type': 'application/json', 'X-LLM-Provider': provider, ...csrfHdrs},
             body: JSON.stringify({model, messages: currentMessages, tools, stream: true, max_tokens: maxTokens, stream_options: {include_usage: true}}),
             signal
         });
 
-        if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
+        if (!res.ok) {
+            if (res.status === 302 || res.status === 403) invalidateTokens();
+            throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
+        }
+        storeResponseToken(path, res);
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
