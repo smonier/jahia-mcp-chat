@@ -1,7 +1,7 @@
 import {useCallback, useRef, useState} from 'react';
 import {getCsrfHeaders, storeResponseToken, invalidateTokens} from './csrfToken';
 import {callTool, fetchAllTools, serverUrl, TOOL_SEPARATOR} from './mcpClient';
-import {confirmToolCall, GENAI_PROVIDER, runGenAiAgentLoop} from './genaiAgent';
+import {confirmToolCall, GENAI_PROVIDER, genAiAllowedTools, runGenAiAgentLoop} from './genaiAgent';
 
 const ctx = () => window.contextJsParameters?.contextPath || '';
 const LLM_PROXY = () => `${ctx()}/modules/jahia-mcp-chat/llm-proxy`;
@@ -257,12 +257,11 @@ function buildSystemPrompt(servers, skills, mcpTools, siteKey, systemPromptAppen
         ? '\n\n## Loaded Skills\n\n' + skills.map(s => `### ${s.name}\n${s.content}`).join('\n\n')
         : '';
 
-    return `You are a Jahia CMS assistant. You manage content, pages, and sites via the \`mcp_call\` tool.
+    return `You are a helpful assistant inside Jahia, a CMS. You can manage content, pages and sites, and use the other connected services, through the \`mcp_call\` tool.
 ${siteCtx}
-## Tool-first rule (most important)
-For ANY request that involves the Jahia site — listing content, creating nodes, checking pages, reading configuration, anything — you MUST call \`mcp_call\` immediately. Do not answer from memory or training data. Do not describe what you are about to do. Call the tool first, then respond based on what it returns.
-
-The only exception is a purely conversational message with no site action needed (e.g. "thanks", "what is a CND file?").
+## When to use tools
+- For anything about this Jahia site or a connected MCP server (content, pages, configuration, the services' own data), call \`mcp_call\` first and answer from what it returns: never from memory. Do not describe what you are about to do; call the tool.
+- For everything else (general knowledge, writing, translation, explanations, code, advice), answer directly from your own knowledge, without tools.
 
 ## Attachments
 - Files the user attaches to their message arrive inline (Word documents are pre-converted to HTML — their headings/tables reflect the original structure).
@@ -288,8 +287,8 @@ function buildGenAiInstructions(skills, siteKey, systemPromptAppendix) {
     const skillsText = skills.length > 0
         ? '\n\n## Loaded Skills\n\n' + skills.map(s => `### ${s.name}\n${s.content}`).join('\n\n')
         : '';
-    return `You are a Jahia CMS assistant. You manage content, pages and sites with the Jahia tools you are given.
-${siteCtx}For any request about the site, call the tools first and answer from what they return; never answer from memory.
+    return `You are a helpful assistant inside Jahia, a CMS. You can manage content, pages and sites with the Jahia tools you are given.
+${siteCtx}For anything about this site, call the tools first and answer from what they return, never from memory. For everything else (general knowledge, writing, translation, explanations, code), answer directly without tools.
 Chain tool calls until the task is done. Check content types and templates before creating content. Summarize results in plain language, never raw JSON.${skillsText}${systemPromptAppendix ? '\n\n## Client-specific instructions\n\n' + systemPromptAppendix : ''}`;
 }
 
@@ -678,7 +677,8 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
         try {
             const stream = useGenAi
                 ? runGenAiAgentLoop(trimmedHistory, buildGenAiInstructions(settings.skills || [], siteKey, osgiConfig.systemPromptAppendix || ''),
-                    controller.signal, maxTokens, document.documentElement.lang || undefined)
+                    controller.signal, maxTokens, document.documentElement.lang || undefined,
+                    genAiAllowedTools(mcpTools, servers, TOOL_SEPARATOR))
                 : useOpenAICompat
                 ? runOpenAILoop(null, model, trimmedHistory, systemPrompt, onToolUse, controller.signal, provider, maxTokens)
                 : runAnthropicLoop(null, model, trimmedHistory, systemPrompt, onToolUse, controller.signal, maxTokens);

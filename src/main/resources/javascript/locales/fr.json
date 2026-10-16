@@ -40,7 +40,7 @@
                 "signInRequired": "Non connecté - connexion requise",
                 "unavailable": "Indisponible"
             },
-            "genaiNote": "Jahia GenAI mène la conversation sur le serveur avec les seuls outils Jahia : les serveurs MCP distants et les images ne sont pas disponibles."
+            "genaiNote": "Jahia GenAI mène la conversation sur le serveur avec les seuls outils Jahia : les serveurs MCP distants et les images ne sont pas disponibles. Tant que Jahia/genai-connector#15 n'est pas corrigé, content.create et content.update sont exclus (le fournisseur refuse leur schéma)."
         },
         "modelSelector": {
             "label": "Modèle",

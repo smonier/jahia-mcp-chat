@@ -74,6 +74,9 @@ provider and model of the connector's own configuration. With it selected:
 - a tool call the connector flags for approval pauses the run: the chat shows **Allow** / **Deny** above the input;
 - remote MCP servers and images are not available, because the connector's agent offers only the Jahia tools and
   takes text turns. Pick another provider for those conversations.
+- `content.create` and `content.update` are left out for now: the connector drops the root `$defs` of their
+  schema and the provider refuses the request ([Jahia/genai-connector#15](https://github.com/Jahia/genai-connector/issues/15)).
+  The chat sends `allowedTools` without the Jahia tools whose schema uses `$ref`.
 
 Set `DEFAULT_PROVIDER=genai` to make it the default.
 

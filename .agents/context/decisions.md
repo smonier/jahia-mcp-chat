@@ -9,6 +9,9 @@ and the per-user provider choice stay on the module's own `LlmProxyServlet` loop
 tools / external MCP servers; when that lands, move the whole loop to `GenAiAgentService` and drop
 `LlmProxyServlet`. Its servlets are under `/modules/genai`, outside this module's CSRF patterns, and called
 browser-direct with the user's session.
+Workaround until Jahia/genai-connector#15: `genAiAllowedTools()` sends `allowedTools` without the local tools whose
+schema uses `$ref` (the connector drops the root `$defs`; DeepSeek then refuses the whole request). Remove it when
+the fix ships.
 
 ## 2026-10-16 - MCP servers are factory configurations
 

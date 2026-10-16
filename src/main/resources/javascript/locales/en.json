@@ -40,7 +40,7 @@
                 "signInRequired": "Not connected - sign in required",
                 "unavailable": "Unavailable"
             },
-            "genaiNote": "Jahia GenAI runs the conversation on the server with the Jahia tools only: remote MCP servers and images are not available with it."
+            "genaiNote": "Jahia GenAI runs the conversation on the server with the Jahia tools only: remote MCP servers and images are not available with it. Until Jahia/genai-connector#15 is fixed, content.create and content.update are left out (their schema is refused by the provider)."
         },
         "modelSelector": {
             "label": "Model",

@@ -28,7 +28,8 @@ All notable changes to Jahia MCP Chat. Format: [Keep a Changelog](https://keepac
 - `.docx` attachments read in the browser (converted to HTML).
 - **Jahia GenAI** provider when the genai-connector module is installed: the conversation runs on the connector's
   server-side agent with the Jahia MCP tools, with Allow / Deny for tool calls that need approval. Remote MCP
-  servers and images stay on the module's own providers.
+  servers and images stay on the module's own providers. Jahia tools whose schema uses `$ref` (`content.create`,
+  `content.update`) are left out until Jahia/genai-connector#15 is fixed. Tested on 8.2.3.2 with DeepSeek.
 
 ### Changed
 

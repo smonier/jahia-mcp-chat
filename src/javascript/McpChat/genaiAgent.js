@@ -33,7 +33,18 @@ function historyText(content) {
 }
 
 // Yields the same events as the other loops (text, tool_start, tool_result, usage) plus approval_required
-export async function* runGenAiAgentLoop(messages, instructions, signal, maxTokens, locale) {
+// Jahia tools the connector can hand to the provider: a schema with $ref loses its root $defs in the connector's
+// bridge and the provider rejects the whole request (Jahia/genai-connector#15). Names without the server prefix.
+export function genAiAllowedTools(mcpTools, servers, separator) {
+    const local = (servers || []).filter(s => s.local).map(s => s.name + separator);
+    const names = (mcpTools || [])
+        .filter(t => local.some(p => t.name.startsWith(p)))
+        .filter(t => !JSON.stringify(t.inputSchema || t.input_schema || {}).includes('$ref'))
+        .map(t => t.name.slice(t.name.indexOf(separator) + separator.length));
+    return names.length > 0 ? names : undefined;
+}
+
+export async function* runGenAiAgentLoop(messages, instructions, signal, maxTokens, locale, allowedTools) {
     const turns = messages.map(m => ({role: m.role, text: historyText(m.content)})).filter(t => t.text);
     const last = turns.pop();
     if (!last || last.role !== 'user') throw new Error('Nothing to send');
@@ -45,7 +56,8 @@ export async function* runGenAiAgentLoop(messages, instructions, signal, maxToke
             instructions,
             history: turns,
             ...(maxTokens ? {maxOutputTokens: maxTokens} : {}),
-            ...(locale ? {locale} : {})
+            ...(locale ? {locale} : {}),
+            ...(allowedTools ? {allowedTools} : {})
         })
     });
     if (!res.ok) throw new Error(`Jahia GenAI ${res.status}: ${await res.text()}`);
