@@ -1,46 +1,58 @@
 {
     "jahia-mcp-chat": {
-    "action": {
-        "open": "MCP Chat"
-    },
-    "panel": {
-        "title": "MCP Chat",
-        "empty": "Ask me anything about your Jahia site. I can manage content, pages, and more using the MCP server.",
-        "configHint": "Configure your API key in",
-        "configLink": "settings",
-        "clear": "Clear conversation",
-        "close": "Close panel",
-        "messages": "Chat messages"
-    },
-    "input": {
-        "placeholder": "Ask anything… (Enter to send, Shift+Enter for new line)",
-        "label": "Message input",
-        "send": "Send",
-        "stop": "Stop"
-    },
-    "settings": {
-        "title": "Settings",
-        "close": "Close settings",
-        "llm": "LLM Provider",
-        "provider": "Provider",
-        "model": "Model",
-        "apiKey": "API Key",
-        "apiKeyPlaceholder": "sk-ant-... or sk-...",
-        "maxTokens": "Max output tokens",
-        "noProviders": "No LLM providers configured. Add API keys in the OSGi configuration."
-    },
-    "modelSelector": {
-        "label": "Model",
-        "provider": "Provider",
-        "model": "Model"
-    },
-    "skills": {
-        "title": "Skills",
-        "upload": "Upload .md",
-        "pull": "Pull",
-        "githubLabel": "GitHub raw URL",
-        "githubPlaceholder": "https://raw.githubusercontent.com/.../SKILL.md",
-        "remove": "Remove {{name}}"
-    }
+        "action": {
+            "open": "MCP Chat"
+        },
+        "panel": {
+            "title": "MCP Chat",
+            "empty": "Ask me anything about your Jahia site. I can manage content, pages, and more using the MCP server.",
+            "configHint": "Configure your API key in",
+            "configLink": "settings",
+            "clear": "Clear conversation",
+            "close": "Close panel",
+            "messages": "Chat messages"
+        },
+        "input": {
+            "placeholder": "Ask anything… (Enter to send, Shift+Enter for new line)",
+            "label": "Message input",
+            "send": "Send",
+            "stop": "Stop"
+        },
+        "settings": {
+            "title": "Settings",
+            "close": "Close settings",
+            "llm": "LLM Provider",
+            "provider": "Provider",
+            "model": "Model",
+            "apiKey": "API Key",
+            "apiKeyPlaceholder": "sk-ant-... or sk-...",
+            "maxTokens": "Max output tokens",
+            "noProviders": "No LLM providers configured. Add API keys in the OSGi configuration.",
+            "mcpServers": "MCP servers",
+            "noMcpServers": "No MCP server is configured for this site.",
+            "connect": "Connect",
+            "disconnect": "Disconnect",
+            "toolCount": "{{count}} tools",
+            "thisJahia": "this Jahia",
+            "status": {
+                "checking": "Checking...",
+                "connected": "Connected",
+                "signInRequired": "Not connected - sign in required",
+                "unavailable": "Unavailable"
+            }
+        },
+        "modelSelector": {
+            "label": "Model",
+            "provider": "Provider",
+            "model": "Model"
+        },
+        "skills": {
+            "title": "Skills",
+            "upload": "Upload .md",
+            "pull": "Pull",
+            "githubLabel": "GitHub raw URL",
+            "githubPlaceholder": "https://raw.githubusercontent.com/.../SKILL.md",
+            "remove": "Remove {{name}}"
+        }
     }
 }

@@ -7,7 +7,6 @@ import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.PathNotFoundException;
 import javax.jcr.RepositoryException;
 import javax.servlet.Servlet;
 import javax.servlet.ServletException;
@@ -20,7 +19,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Persists per-user chat preferences as a JSON blob in JCR under the current user's node.
+ * Persists per-user chat preferences as a JSON blob in the {@code mcpchat.settings} property of the current user's node.
  * Restricted to authenticated users (guests receive 401).
  * The mcpToken field is stripped server-side before storage — tokens must not be persisted in JCR.
  *
@@ -34,9 +33,7 @@ import java.util.stream.Collectors;
 public class SettingsServlet extends HttpServlet {
 
     private static final Logger logger = LoggerFactory.getLogger(SettingsServlet.class);
-    private static final String SETTINGS_NODE = "mcp-chat-settings";
-    private static final String DATA_PROP = "data";
-    private static final String NODE_TYPE = "nt:unstructured";
+    private static final String SETTINGS_PROP = "mcpchat.settings";
     private static final int MAX_BODY_BYTES = 65_536; // 64 KB — settings are small
 
     // Strip any mcpToken value that a client might submit — tokens must not be stored in JCR
@@ -99,28 +96,14 @@ public class SettingsServlet extends HttpServlet {
         }
     }
 
+    // A user node accepts no nt:unstructured child; its residual properties hold the settings instead
     private String readSettings(JCRSessionWrapper session) throws RepositoryException {
         JCRNodeWrapper userNode = session.getNode(session.getUser().getLocalPath());
-        try {
-            JCRNodeWrapper settingsNode = userNode.getNode(SETTINGS_NODE);
-            if (settingsNode.hasProperty(DATA_PROP)) {
-                return settingsNode.getProperty(DATA_PROP).getString();
-            }
-        } catch (PathNotFoundException e) {
-            // not yet created — return null so caller emits {}
-        }
-        return null;
+        return userNode.hasProperty(SETTINGS_PROP) ? userNode.getProperty(SETTINGS_PROP).getString() : null;
     }
 
     private void writeSettings(JCRSessionWrapper session, String json) throws RepositoryException {
-        JCRNodeWrapper userNode = session.getNode(session.getUser().getLocalPath());
-        JCRNodeWrapper settingsNode;
-        try {
-            settingsNode = userNode.getNode(SETTINGS_NODE);
-        } catch (PathNotFoundException e) {
-            settingsNode = userNode.addNode(SETTINGS_NODE, NODE_TYPE);
-        }
-        settingsNode.setProperty(DATA_PROP, json);
+        session.getNode(session.getUser().getLocalPath()).setProperty(SETTINGS_PROP, json);
         session.save();
     }
 

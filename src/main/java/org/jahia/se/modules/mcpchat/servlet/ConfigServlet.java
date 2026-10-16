@@ -3,9 +3,13 @@ package org.jahia.se.modules.mcpchat.servlet;
 import org.jahia.se.modules.mcpchat.config.McpChatConfigService;
 import org.jahia.se.modules.mcpchat.config.McpServer;
 import org.jahia.se.modules.mcpchat.config.McpServerRegistry;
+import org.jahia.se.modules.mcpchat.oauth.UserOAuthService;
+import org.jahia.services.content.JCRSessionFactory;
+import org.jahia.services.content.JCRSessionWrapper;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
+import javax.jcr.RepositoryException;
 import javax.servlet.Servlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -20,7 +24,7 @@ import java.util.stream.Collectors;
  *
  * GET /modules/jahia-mcp-chat/config?site=&lt;siteKey&gt;
  * Response: { availableProviders, defaultProvider, defaultModel, maxTokens, systemPromptAppendix,
- *             mcpServers: [{ name, label, local, url? }] } - servers filtered for that site
+ *             mcpServers: [{ name, label, local, signIn, signedIn, url? }] } - servers filtered for that site
  */
 @Component(
         service = {HttpServlet.class, Servlet.class},
@@ -33,6 +37,9 @@ public class ConfigServlet extends HttpServlet {
 
     @Reference
     private McpServerRegistry serverRegistry;
+
+    @Reference
+    private UserOAuthService userOAuth;
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
@@ -50,8 +57,9 @@ public class ConfigServlet extends HttpServlet {
                 .collect(Collectors.joining(",", "[", "]"));
 
         String siteKey = ServletSupport.accessibleSite(req.getParameter("site"));
+        JCRSessionWrapper userSession = userSession();
         String serversJson = siteKey == null ? "[]" : serverRegistry.getServers(siteKey).stream()
-                .map(ConfigServlet::serverJson)
+                .map(s -> serverJson(s, s.usesUserSignIn() && userSession != null && userOAuth.isSignedIn(s, userSession)))
                 .collect(Collectors.joining(",", "[", "]"));
 
         res.getWriter().write("{\"availableProviders\":" + providersJson
@@ -62,10 +70,20 @@ public class ConfigServlet extends HttpServlet {
                 + ",\"mcpServers\":" + serversJson + "}");
     }
 
-    private static String serverJson(McpServer.Snapshot s) {
+    private static JCRSessionWrapper userSession() {
+        try {
+            return JCRSessionFactory.getInstance().getCurrentUserSession();
+        } catch (RepositoryException e) {
+            return null;
+        }
+    }
+
+    private static String serverJson(McpServer.Snapshot s, boolean signedIn) {
         return "{\"name\":" + ServletSupport.json(s.name)
                 + ",\"label\":" + ServletSupport.json(s.label)
                 + ",\"local\":" + s.isLocal()
+                + ",\"signIn\":" + s.usesUserSignIn()
+                + ",\"signedIn\":" + signedIn
                 + (s.isLocal() ? ",\"url\":" + ServletSupport.json(s.url) : "")
                 + "}";
     }

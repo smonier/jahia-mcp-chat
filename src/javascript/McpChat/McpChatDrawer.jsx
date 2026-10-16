@@ -14,7 +14,8 @@ export function McpChatDrawer({isOpen, onClose}) {
     const {t} = useTranslation('jahia-mcp-chat');
     const {settings, updateSettings, addSkill, removeSkill} = useSettings();
     const siteKey = useSelector(state => state.site);
-    const {config, configLoaded} = useConfig(siteKey);
+    const {config, configLoaded, reloadConfig} = useConfig(siteKey);
+    const [signInRequired, setSignInRequired] = useState([]);
     const [mcpTools, setMcpTools] = useState([]);
     const [toolsLoading, setToolsLoading] = useState(false);
     const {messages, isStreaming, sendMessage, stopStreaming, clearMessages} = useMcpChat(settings, mcpTools, siteKey, config);
@@ -29,11 +30,13 @@ export function McpChatDrawer({isOpen, onClose}) {
     const loadTools = useCallback(async () => {
         if (!mcpServers?.length) {
             setMcpTools([]);
+            setSignInRequired([]);
             return;
         }
         setToolsLoading(true);
-        const tools = await fetchMcpTools(mcpServers, siteKey);
+        const {tools, signInRequired: needSignIn} = await fetchMcpTools(mcpServers, siteKey);
         setMcpTools(tools);
+        setSignInRequired(needSignIn);
         setToolsLoading(false);
     }, [mcpServers, siteKey]);
 
@@ -164,6 +167,11 @@ export function McpChatDrawer({isOpen, onClose}) {
                         onAddSkill={addSkill}
                         onRemoveSkill={removeSkill}
                         onClose={() => setShowSettings(false)}
+                        siteKey={siteKey}
+                        mcpTools={mcpTools}
+                        toolsLoading={toolsLoading}
+                        signInRequired={signInRequired}
+                        onServersChanged={reloadConfig}
                     />
                 )}
 

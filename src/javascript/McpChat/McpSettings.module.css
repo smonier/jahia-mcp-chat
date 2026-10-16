@@ -78,3 +78,84 @@
 }
 
 .select:focus { border-color: #0072b1; }
+
+.serverList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.serverRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid #e0e2e5;
+    border-radius: 4px;
+}
+
+.serverText {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.serverLabel {
+    font-size: 13px;
+    font-weight: 600;
+    color: #131c21;
+}
+
+.serverMeta {
+    font-size: 11px;
+    color: #5c6670;
+}
+
+.statusDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #aeb1b7;
+}
+
+.status_connected { background: #2e7d32; }
+.status_signInRequired { background: #c77700; }
+.status_unavailable { background: #c62828; }
+
+.serverBtn,
+.serverBtnSecondary {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.serverBtn {
+    border: 1px solid #0072b1;
+    background: #0072b1;
+    color: #fff;
+}
+
+.serverBtnSecondary {
+    border: 1px solid #c4c8cd;
+    background: #fff;
+    color: #131c21;
+}
+
+.serverBtn:disabled,
+.serverBtnSecondary:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.serverError {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: #c62828;
+}

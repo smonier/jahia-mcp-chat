@@ -1,6 +1,7 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {SkillsManager} from './SkillsManager';
+import {signIn, signOut, TOOL_SEPARATOR} from './mcpClient';
 import styles from './McpSettings.module.css';
 
 const MODELS_BY_PROVIDER = {
@@ -28,7 +29,76 @@ const PROVIDER_LABELS = {
     deepseek: 'DeepSeek'
 };
 
-export function McpSettings({settings, config, onUpdate, onAddSkill, onRemoveSkill}) {
+function serverStatus(server, toolCount, toolsLoading, needsSignIn) {
+    if (toolsLoading) return 'checking';
+    if (needsSignIn) return 'signInRequired';
+    return toolCount > 0 ? 'connected' : 'unavailable';
+}
+
+function McpServers({servers, siteKey, mcpTools, toolsLoading, signInRequired, onServersChanged}) {
+    const {t} = useTranslation('jahia-mcp-chat');
+    const [busy, setBusy] = useState('');
+    const [error, setError] = useState('');
+
+    const connect = async server => {
+        setBusy(server.name);
+        setError('');
+        const result = await signIn(server, siteKey);
+        setBusy('');
+        if (!result.ok && result.error) setError(result.error);
+        onServersChanged?.();
+    };
+
+    const disconnect = async server => {
+        setBusy(server.name);
+        setError('');
+        await signOut(server);
+        setBusy('');
+        onServersChanged?.();
+    };
+
+    return (
+        <section className={styles.section}>
+            <h4 className={styles.sectionTitle}>{t('settings.mcpServers')}</h4>
+            {servers.length === 0 && <p className={styles.noProviders}>{t('settings.noMcpServers')}</p>}
+            <ul className={styles.serverList}>
+                {servers.map(server => {
+                    const toolCount = mcpTools.filter(tool => tool.name.startsWith(server.name + TOOL_SEPARATOR)).length;
+                    const status = serverStatus(server, toolCount, toolsLoading, signInRequired.includes(server.name));
+                    return (
+                        <li key={server.name} className={styles.serverRow}>
+                            <span className={`${styles.statusDot} ${styles['status_' + status]}`} aria-hidden="true"/>
+                            <span className={styles.serverText}>
+                                <span className={styles.serverLabel}>{server.label}</span>
+                                <span className={styles.serverMeta}>
+                                    {t(`settings.status.${status}`)}
+                                    {status === 'connected' && ` - ${t('settings.toolCount', {count: toolCount})}`}
+                                    {server.local && ` - ${t('settings.thisJahia')}`}
+                                </span>
+                            </span>
+                            {server.signIn && status === 'signInRequired' && (
+                                <button type="button" className={styles.serverBtn} disabled={busy === server.name}
+                                        onClick={() => connect(server)}>
+                                    {t('settings.connect')}
+                                </button>
+                            )}
+                            {server.signIn && server.signedIn && status !== 'signInRequired' && (
+                                <button type="button" className={styles.serverBtnSecondary} disabled={busy === server.name}
+                                        onClick={() => disconnect(server)}>
+                                    {t('settings.disconnect')}
+                                </button>
+                            )}
+                        </li>
+                    );
+                })}
+            </ul>
+            {error && <p className={styles.serverError} role="alert">{error}</p>}
+        </section>
+    );
+}
+
+export function McpSettings({settings, config, onUpdate, onAddSkill, onRemoveSkill,
+                                siteKey, mcpTools = [], toolsLoading, signInRequired = [], onServersChanged}) {
     const {t} = useTranslation('jahia-mcp-chat');
     const availableProviders = config?.availableProviders || [];
 
@@ -102,6 +172,15 @@ export function McpSettings({settings, config, onUpdate, onAddSkill, onRemoveSki
                         </>
                     )}
                 </section>
+
+                <McpServers
+                    servers={config?.mcpServers || []}
+                    siteKey={siteKey}
+                    mcpTools={mcpTools}
+                    toolsLoading={toolsLoading}
+                    signInRequired={signInRequired}
+                    onServersChanged={onServersChanged}
+                />
 
                 <SkillsManager
                     skills={settings.skills || []}

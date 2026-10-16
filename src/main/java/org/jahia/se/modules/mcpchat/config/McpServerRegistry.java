@@ -22,7 +22,8 @@ import java.util.stream.Collectors;
 public class McpServerRegistry {
 
     private static final McpServer.Snapshot DEFAULT_SERVER = new McpServer.Snapshot(
-            "jahia", "Jahia", "/modules/mcp", true, "Authorization", "", 60_000, Collections.emptySet());
+            "jahia", "Jahia", "/modules/mcp", true, "Authorization", "", 60_000, "authorization_code", "", "", "", "",
+            Collections.emptySet());
 
     private final List<McpServer> servers = new CopyOnWriteArrayList<>();
 

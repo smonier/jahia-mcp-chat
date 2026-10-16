@@ -217,6 +217,7 @@ function truncateForLlm(result) {
     return str.length > 4000 ? str.slice(0, 4000) + ' [truncated]' : str;
 }
 
+// Resolves to {tools, signInRequired: [server names]}
 export function fetchMcpTools(servers, siteKey) {
     return fetchAllTools(servers, siteKey);
 }

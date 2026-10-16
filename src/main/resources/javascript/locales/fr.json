@@ -1,46 +1,58 @@
 {
     "jahia-mcp-chat": {
-    "action": {
-        "open": "MCP Chat"
-    },
-    "panel": {
-        "title": "Jahia MCP Chat",
-        "empty": "Posez-moi des questions sur votre site Jahia. Je peux gérer le contenu, les pages et plus encore.",
-        "configHint": "Renseignez votre clé API dans les ",
-        "configLink": "paramètres",
-        "clear": "Effacer la conversation",
-        "close": "Fermer le panneau",
-        "messages": "Messages du chat"
-    },
-    "input": {
-        "placeholder": "Posez votre question… (Entrée pour envoyer, Maj+Entrée pour saut de ligne)",
-        "label": "Saisie du message",
-        "send": "Envoyer",
-        "stop": "Arrêter"
-    },
-    "settings": {
-        "title": "Paramètres",
-        "close": "Fermer les paramètres",
-        "llm": "Fournisseur LLM",
-        "provider": "Fournisseur",
-        "model": "Modèle",
-        "apiKey": "Clé API",
-        "apiKeyPlaceholder": "sk-...",
-        "maxTokens": "Tokens de sortie max",
-        "noProviders": "Aucun fournisseur LLM configuré. Ajoutez des clés API dans la configuration OSGi."
-    },
-    "modelSelector": {
-        "label": "Modèle",
-        "provider": "Fournisseur",
-        "model": "Modèle"
-    },
-    "skills": {
-        "title": "Compétences",
-        "upload": "Importer un fichier .md",
-        "pull": "Récupérer",
-        "githubLabel": "URL GitHub brute",
-        "githubPlaceholder": "https://raw.githubusercontent.com/.../SKILL.md",
-        "remove": "Supprimer la compétence {{name}}"
-    }
+        "action": {
+            "open": "MCP Chat"
+        },
+        "panel": {
+            "title": "Jahia MCP Chat",
+            "empty": "Posez-moi des questions sur votre site Jahia. Je peux gérer le contenu, les pages et plus encore.",
+            "configHint": "Renseignez votre clé API dans les ",
+            "configLink": "paramètres",
+            "clear": "Effacer la conversation",
+            "close": "Fermer le panneau",
+            "messages": "Messages du chat"
+        },
+        "input": {
+            "placeholder": "Posez votre question… (Entrée pour envoyer, Maj+Entrée pour saut de ligne)",
+            "label": "Saisie du message",
+            "send": "Envoyer",
+            "stop": "Arrêter"
+        },
+        "settings": {
+            "title": "Paramètres",
+            "close": "Fermer les paramètres",
+            "llm": "Fournisseur LLM",
+            "provider": "Fournisseur",
+            "model": "Modèle",
+            "apiKey": "Clé API",
+            "apiKeyPlaceholder": "sk-...",
+            "maxTokens": "Tokens de sortie max",
+            "noProviders": "Aucun fournisseur LLM configuré. Ajoutez des clés API dans la configuration OSGi.",
+            "mcpServers": "Serveurs MCP",
+            "noMcpServers": "Aucun serveur MCP n'est configuré pour ce site.",
+            "connect": "Se connecter",
+            "disconnect": "Se déconnecter",
+            "toolCount": "{{count}} outils",
+            "thisJahia": "ce Jahia",
+            "status": {
+                "checking": "Vérification...",
+                "connected": "Connecté",
+                "signInRequired": "Non connecté - connexion requise",
+                "unavailable": "Indisponible"
+            }
+        },
+        "modelSelector": {
+            "label": "Modèle",
+            "provider": "Fournisseur",
+            "model": "Modèle"
+        },
+        "skills": {
+            "title": "Compétences",
+            "upload": "Importer un fichier .md",
+            "pull": "Récupérer",
+            "githubLabel": "URL GitHub brute",
+            "githubPlaceholder": "https://raw.githubusercontent.com/.../SKILL.md",
+            "remove": "Supprimer la compétence {{name}}"
+        }
     }
 }

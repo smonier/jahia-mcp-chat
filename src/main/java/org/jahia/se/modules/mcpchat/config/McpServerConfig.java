@@ -3,6 +3,7 @@ package org.jahia.se.modules.mcpchat.config;
 import org.osgi.service.metatype.annotations.AttributeDefinition;
 import org.osgi.service.metatype.annotations.AttributeType;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
+import org.osgi.service.metatype.annotations.Option;
 
 /**
  * OSGi metatype of ONE MCP server. Factory configuration: each
@@ -33,6 +34,31 @@ public @interface McpServerConfig {
     @AttributeDefinition(name = "Auth value", description = "Value of the auth header, e.g. 'Bearer <token>'. "
             + "Never sent to the browser.", type = AttributeType.PASSWORD)
     String authValue() default "";
+
+    @AttributeDefinition(name = "OAuth grant",
+            description = "For a remote server that requires OAuth. authorization_code (default): each Jahia user "
+                    + "signs in to the server once from the chat; the module registers itself with the server when no "
+                    + "client id is set. client_credentials: one account for every user, with the client id and secret below.",
+            options = {
+                    @Option(label = "Each user signs in (authorization code)", value = "authorization_code"),
+                    @Option(label = "One account for all users (client credentials)", value = "client_credentials")})
+    String oauthGrant() default "authorization_code";
+
+    @AttributeDefinition(name = "OAuth client id",
+            description = "Optional for authorization_code (the module registers itself when empty), required for "
+                    + "client_credentials.")
+    String oauthClientId() default "";
+
+    @AttributeDefinition(name = "OAuth client secret", type = AttributeType.PASSWORD)
+    String oauthClientSecret() default "";
+
+    @AttributeDefinition(name = "OAuth scope", description = "Space-separated scopes to request; empty for the client's defaults.")
+    String oauthScope() default "";
+
+    @AttributeDefinition(name = "OAuth token URL",
+            description = "Token endpoint. Empty: discovered from the server's OAuth metadata "
+                    + "(/.well-known/oauth-protected-resource, then the authorization server's metadata).")
+    String oauthTokenUrl() default "";
 
     @AttributeDefinition(name = "Timeout (ms)", description = "Request timeout for a remote server.")
     int timeoutMs() default 60_000;

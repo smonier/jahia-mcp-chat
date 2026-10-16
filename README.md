@@ -60,7 +60,7 @@ Java OSGi layer
     ├── ConfigServlet     /modules/jahia-mcp-chat/config?site=<key>  (no secrets)
     ├── McpProxyServlet   /modules/jahia-mcp-chat/mcp?server=<name>  remote MCP servers only
     └── SettingsServlet   /modules/jahia-mcp-chat/settings
-            └── JCR: {userNode}/mcp-chat-settings (jnt:content, data property)
+            └── JCR: {userNode} properties mcpchat.settings and mcpchat.oauth.<server>
 
 Jahia MCP server (separate module)
     └── /modules/mcp   JSON-RPC 2.0 endpoint for Jahia tools
@@ -136,6 +136,8 @@ All server-side configuration lives in `digital-factory-data/karaf/etc/` and is 
 | `label` | Name shown to users |
 | `url` | Relative (`/modules/mcp`): a server on this Jahia, called by the browser with the user's session. Absolute (`https://...`): a remote server, called through `McpProxyServlet` |
 | `authHeader`, `authValue` | Credentials sent to a remote server (e.g. `Authorization` / `Bearer <token>`); never sent to the browser |
+| `oauthClientId`, `oauthClientSecret`, `oauthScope` | Client credentials for a remote server that requires OAuth: the module fetches a token, caches it until it expires and sends it as `Authorization: Bearer` |
+| `oauthTokenUrl` | Token endpoint; empty means discovered from the server's `/.well-known/oauth-protected-resource` metadata |
 | `timeoutMs` | Remote request timeout (default 60000) |
 | `sites` | Comma-separated site keys allowed to use the server; empty means every site |
 | `enabled` | `false` hides the server |
@@ -150,6 +152,18 @@ url=https://mcp.example.com/mcp
 authHeader=Authorization
 authValue=Bearer <token>
 sites=digitall
+```
+
+A remote server behind OAuth, such as BotRank (the `{"type": "http", "url": ...}` entry of an `mcpServers` JSON):
+
+```properties
+# org.jahia.se.modules.mcpchat.server-botrank.cfg
+name=botrank
+label=BotRank
+url=https://api.botrank.ai/mcp/public
+oauthClientId=<client id>
+oauthClientSecret=<client secret>
+oauthScope=botrank-mcp:read
 ```
 
 A user sees only the servers of the site open in jContent, and only on a site they have jContent access to. Uploading chat attachments to the DAM uses the first local server.
@@ -202,7 +216,8 @@ The token budget per response is controlled by **Max output tokens** in settings
 
 | What | Where | Survives restart? |
 |---|---|---|
-| Provider, model, max tokens | JCR `{userNode}/mcp-chat-settings` | Yes - server-side, per user |
+| Provider, model, max tokens | JCR property `mcpchat.settings` of the user node | Yes - server-side, per user |
+| MCP server sign-ins (OAuth tokens) | JCR properties `mcpchat.oauth.<server>` of the user node, never sent to the browser | Yes - server-side, per user |
 | Chat history | `localStorage` | Yes — browser-local |
 | Skills | `localStorage` | Yes — browser-local |
 

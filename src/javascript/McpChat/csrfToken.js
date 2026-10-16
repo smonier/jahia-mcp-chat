@@ -71,9 +71,17 @@ export async function getCsrfHeaders(path) {
 export function storeResponseToken(path, response) {
     if (!cache || !path) return;
     const returned = response.headers?.get(cache.tokenName);
-    if (returned) {
-        cache.pageTokens[path] = returned;
+    if (!returned) return;
+    // The guard answers rotated tokens as JSON ({"pageTokens": {uri: token}}), not as a bare token
+    if (returned.trim().startsWith('{')) {
+        try {
+            Object.assign(cache.pageTokens, JSON.parse(returned).pageTokens || {});
+        } catch {
+            invalidateTokens();
+        }
+        return;
     }
+    cache.pageTokens[path] = returned;
 }
 
 export function invalidateTokens() {

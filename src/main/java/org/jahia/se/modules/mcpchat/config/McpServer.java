@@ -69,11 +69,17 @@ public class McpServer {
         public final String authHeader;
         public final String authValue;
         public final int timeoutMs;
+        public final String oauthGrant;
+        public final String oauthClientId;
+        public final String oauthClientSecret;
+        public final String oauthScope;
+        public final String oauthTokenUrl;
         /** Site keys allowed to use the server; empty means every site. */
         public final Set<String> sites;
 
         Snapshot(String name, String label, String url, boolean enabled, String authHeader,
-                 String authValue, int timeoutMs, Set<String> sites) {
+                 String authValue, int timeoutMs, String oauthGrant, String oauthClientId, String oauthClientSecret,
+                 String oauthScope, String oauthTokenUrl, Set<String> sites) {
             this.name = name;
             this.label = label;
             this.url = url;
@@ -81,6 +87,11 @@ public class McpServer {
             this.authHeader = authHeader;
             this.authValue = authValue;
             this.timeoutMs = timeoutMs;
+            this.oauthGrant = oauthGrant;
+            this.oauthClientId = oauthClientId;
+            this.oauthClientSecret = oauthClientSecret;
+            this.oauthScope = oauthScope;
+            this.oauthTokenUrl = oauthTokenUrl;
             this.sites = sites;
         }
 
@@ -95,12 +106,27 @@ public class McpServer {
                     trim(c.authHeader()).isEmpty() ? "Authorization" : trim(c.authHeader()),
                     trim(c.authValue()),
                     c.timeoutMs() > 0 ? c.timeoutMs() : 60_000,
+                    "client_credentials".equals(trim(c.oauthGrant())) ? "client_credentials" : "authorization_code",
+                    trim(c.oauthClientId()),
+                    trim(c.oauthClientSecret()),
+                    trim(c.oauthScope()),
+                    trim(c.oauthTokenUrl()),
                     Collections.unmodifiableSet(Arrays.stream(trim(c.sites()).split(","))
                             .map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toSet())));
         }
 
         private static String trim(String v) {
             return v == null ? "" : v.trim();
+        }
+
+        /** @return {@code true} when calls carry one client-credentials token shared by every user */
+        public boolean usesClientCredentials() {
+            return "client_credentials".equals(oauthGrant) && !oauthClientId.isEmpty();
+        }
+
+        /** @return {@code true} when a 401 from the server means the user must sign in to it */
+        public boolean usesUserSignIn() {
+            return !isLocal() && !usesClientCredentials() && authValue.isEmpty();
         }
 
         /** @return {@code true} when the browser calls the server itself (same Jahia instance) */

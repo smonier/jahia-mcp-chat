@@ -61,6 +61,11 @@ public class McpChatConfigService {
         return config.systemPromptAppendix;
     }
 
+    /** @return the public base URL of this Jahia (scheme, host, context path) without a trailing slash, or "" */
+    public String getPublicBaseUrl() {
+        return config.publicBaseUrl;
+    }
+
     // Immutable snapshot — a single volatile read gives a fully-consistent config view
     private static final class Snapshot {
 
@@ -71,10 +76,11 @@ public class McpChatConfigService {
         final String defaultModel;
         final int    maxTokens;
         final String systemPromptAppendix;
+        final String publicBaseUrl;
 
         private Snapshot(String anthropicApiKey,
                          String openaiApiKey, String deepseekApiKey, String defaultProvider,
-                         String defaultModel, int maxTokens, String systemPromptAppendix) {
+                         String defaultModel, int maxTokens, String systemPromptAppendix, String publicBaseUrl) {
             this.anthropicApiKey      = anthropicApiKey;
             this.openaiApiKey         = openaiApiKey;
             this.deepseekApiKey       = deepseekApiKey;
@@ -82,13 +88,14 @@ public class McpChatConfigService {
             this.defaultModel         = defaultModel;
             this.maxTokens            = maxTokens;
             this.systemPromptAppendix = systemPromptAppendix;
+            this.publicBaseUrl        = publicBaseUrl.replaceAll("/+$", "");
         }
 
         static Snapshot defaults() {
             return new Snapshot(
                 "", "", "",
                 "anthropic", "claude-sonnet-4-6",
-                4096, ""
+                4096, "", ""
             );
         }
 
@@ -100,7 +107,8 @@ public class McpChatConfigService {
                 str(p, "DEFAULT_PROVIDER",         "anthropic"),
                 str(p, "DEFAULT_MODEL",            "claude-sonnet-4-6"),
                 intVal(p, "MAX_TOKENS",            4096),
-                str(p, "SYSTEM_PROMPT_APPENDIX",   "")
+                str(p, "SYSTEM_PROMPT_APPENDIX",   ""),
+                str(p, "PUBLIC_BASE_URL",          "")
             );
         }
 

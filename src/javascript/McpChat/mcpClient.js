@@ -69,27 +69,93 @@ async function ensureInitialized(server, siteKey) {
     await initializing[server.name];
 }
 
+export class SignInRequiredError extends Error {
+    constructor(server) {
+        super(`${server.label} needs you to sign in: use the Connect button at the top of the chat, then ask again.`);
+        this.server = server;
+    }
+}
+
+async function isSignInRequired(server, res) {
+    if (server.local || res.status !== 401) return false;
+    try {
+        return (await res.clone().json()).error === 'sign_in_required';
+    } catch {
+        return false;
+    }
+}
+
 export async function mcpRequest(server, siteKey, method, params) {
     await ensureInitialized(server, siteKey);
     const id = String(callId++);
     const res = await post(server, siteKey, {jsonrpc: '2.0', id, method, params: params || {}});
+    if (await isSignInRequired(server, res)) {
+        delete sessions[server.name];
+        throw new SignInRequiredError(server);
+    }
     if (!res.ok) throw new Error(`MCP ${server.name} HTTP ${res.status}: ${await res.text()}`);
     const json = await readJsonRpc(res, id);
     if (json.error) throw new Error(`MCP ${server.name}: ${json.error.message || JSON.stringify(json.error)}`);
     return json.result;
 }
 
-// Tools of every server, renamed <server>__<tool>; a server that fails is skipped
+// Tools of every server, renamed <server>__<tool>; a server that fails is skipped, one that needs the user
+// to sign in is listed in signInRequired
 export async function fetchAllTools(servers, siteKey) {
+    const signInRequired = [];
     const lists = await Promise.all((servers || []).map(async server => {
+        if (server.signIn && !server.signedIn) {
+            signInRequired.push(server.name);
+            return [];
+        }
         try {
             const result = await mcpRequest(server, siteKey, 'tools/list', {});
             return (result?.tools || []).map(t => ({...t, name: `${server.name}${TOOL_SEPARATOR}${t.name}`}));
-        } catch {
+        } catch (e) {
+            if (e instanceof SignInRequiredError) signInRequired.push(server.name);
             return [];
         }
     }));
-    return lists.flat();
+    return {tools: lists.flat(), signInRequired};
+}
+
+const OAUTH_MESSAGE = 'jahia-mcp-chat-oauth';
+
+// Opens the server's sign-in page in a popup; resolves with {ok, error} when the module's callback page reports.
+// Call it straight from a click handler, or the browser blocks the popup.
+export function signIn(server, siteKey) {
+    const url = `${ctx()}/modules/jahia-mcp-chat/oauth/start?server=${encodeURIComponent(server.name)}&site=${encodeURIComponent(siteKey || '')}`;
+    const popup = globalThis.open(url, `jahia-mcp-chat-oauth-${server.name}`, 'popup,width=520,height=720');
+    if (!popup) return Promise.resolve({ok: false, error: 'The browser blocked the sign-in window. Allow pop-ups for this site.'});
+    return new Promise(resolve => {
+        let done = false;
+        const finish = result => {
+            if (done) return;
+            done = true;
+            globalThis.removeEventListener('message', onMessage);
+            clearInterval(timer);
+            delete sessions[server.name];
+            resolve(result);
+        };
+        const onMessage = e => {
+            if (e.origin !== globalThis.location.origin || e.data?.type !== OAUTH_MESSAGE) return;
+            finish({ok: Boolean(e.data.ok), error: e.data.error || ''});
+        };
+        globalThis.addEventListener('message', onMessage);
+        const timer = setInterval(() => {
+            if (popup.closed) finish({ok: false, error: ''});
+        }, 500);
+    });
+}
+
+export async function signOut(server) {
+    const path = '/modules/jahia-mcp-chat/oauth/signout';
+    const res = await fetch(`${ctx()}${path}?server=${encodeURIComponent(server.name)}`, {
+        method: 'POST', credentials: 'same-origin', headers: await getCsrfHeaders(path)
+    });
+    storeResponseToken(path, res);
+    delete sessions[server.name];
+    return res.ok;
 }
 
 export function resolveTool(servers, prefixedName) {
