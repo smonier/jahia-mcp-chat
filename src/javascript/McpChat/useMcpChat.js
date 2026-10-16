@@ -1,6 +1,7 @@
 import {useCallback, useRef, useState} from 'react';
 import {getCsrfHeaders, storeResponseToken, invalidateTokens} from './csrfToken';
 import {callTool, fetchAllTools, serverUrl, TOOL_SEPARATOR} from './mcpClient';
+import {confirmToolCall, GENAI_PROVIDER, runGenAiAgentLoop} from './genaiAgent';
 
 const ctx = () => window.contextJsParameters?.contextPath || '';
 const LLM_PROXY = () => `${ctx()}/modules/jahia-mcp-chat/llm-proxy`;
@@ -279,6 +280,17 @@ The only exception is a purely conversational message with no site action needed
 3. If you need to inspect the structure of an **existing** page (not a new one), call \`page.structure\` directly — it returns the same container map as \`page.create\`.
 4. To discover all content types available on the current site, call \`site.types\`. Use this before adding content if you are unsure which type name to use.
 ${serversText}${toolCatalog}${skillsText}${systemPromptAppendix ? '\n\n## Client-specific instructions\n\n' + systemPromptAppendix : ''}`;
+}
+
+// The connector's agent offers the Jahia tools itself, under their own names: no mcp_call, no catalog
+function buildGenAiInstructions(skills, siteKey, systemPromptAppendix) {
+    const siteCtx = siteKey ? `The user is currently working on site: **${siteKey}**. Use it as the default site unless told otherwise.\n\n` : '';
+    const skillsText = skills.length > 0
+        ? '\n\n## Loaded Skills\n\n' + skills.map(s => `### ${s.name}\n${s.content}`).join('\n\n')
+        : '';
+    return `You are a Jahia CMS assistant. You manage content, pages and sites with the Jahia tools you are given.
+${siteCtx}For any request about the site, call the tools first and answer from what they return; never answer from memory.
+Chain tool calls until the task is done. Check content types and templates before creating content. Summarize results in plain language, never raw JSON.${skillsText}${systemPromptAppendix ? '\n\n## Client-specific instructions\n\n' + systemPromptAppendix : ''}`;
 }
 
 // Compress older tool result messages to avoid accumulating huge contexts across iterations
@@ -590,6 +602,7 @@ function buildLlmContent(userText, attachments, useOpenAIFormat, supportsVision 
 export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
     const [messages, setMessages] = useState(loadHistory);
     const [isStreaming, setIsStreaming] = useState(false);
+    const [pendingApproval, setPendingApproval] = useState(null);
     const abortRef = useRef(null);
 
     const sendMessage = useCallback(async (userText, attachments = []) => {
@@ -618,6 +631,7 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
                                 : osgiConfig.defaultProvider || 'anthropic';
         const model         = settings.selectedModel || osgiConfig.defaultModel || 'claude-sonnet-4-6';
         const maxTokens     = settings.maxTokens || osgiConfig.maxTokens || 4096;
+        const useGenAi = provider === GENAI_PROVIDER;
         const useOpenAICompat = provider === 'openai' || provider === 'deepseek';
 
         const onToolUse = async (id, name, input) => {
@@ -647,7 +661,7 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
                 // DeepSeek's API 400s on image_url whatever provider slot it
                 // is configured under ("unknown variant `image_url`").
                 return {role: m.role, content: buildLlmContent(m.content, attachments, useOpenAICompat,
-                    provider !== 'deepseek' && !/deepseek/i.test(model))};
+                    !useGenAi && provider !== 'deepseek' && !/deepseek/i.test(model))};
             }
             const isRecent = i >= arr.length - 4;
             if (isRecent || typeof m.content !== 'string') return m;
@@ -662,7 +676,10 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
         setMessages(prev => [...prev, {role: 'assistant', content: '', streaming: true}]);
 
         try {
-            const stream = useOpenAICompat
+            const stream = useGenAi
+                ? runGenAiAgentLoop(trimmedHistory, buildGenAiInstructions(settings.skills || [], siteKey, osgiConfig.systemPromptAppendix || ''),
+                    controller.signal, maxTokens, document.documentElement.lang || undefined)
+                : useOpenAICompat
                 ? runOpenAILoop(null, model, trimmedHistory, systemPrompt, onToolUse, controller.signal, provider, maxTokens)
                 : runAnthropicLoop(null, model, trimmedHistory, systemPrompt, onToolUse, controller.signal, maxTokens);
 
@@ -676,6 +693,8 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
                 } else if (event.type === 'tool_result') {
                     const tc = toolCalls.find(t => t.id === event.id) || toolCalls[toolCalls.length - 1];
                     if (tc) tc.result = event.result;
+                } else if (event.type === 'approval_required') {
+                    setPendingApproval({streamId: event.streamId, callId: event.callId, name: event.name, argumentsJson: event.argumentsJson});
                 } else if (event.type === 'usage') {
                     usageInput += event.input;
                     usageOutput += event.output;
@@ -703,14 +722,21 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
             return updated;
         });
         setIsStreaming(false);
+        setPendingApproval(null);
         abortRef.current = null;
     }, [messages, isStreaming, settings, mcpTools, siteKey, osgiConfig]);
 
     const stopStreaming = useCallback(() => { abortRef.current?.abort(); }, []);
+    const answerApproval = useCallback(async approve => {
+        const p = pendingApproval;
+        if (!p) return;
+        setPendingApproval(null);
+        await confirmToolCall(p.streamId, p.callId, approve);
+    }, [pendingApproval]);
     const clearMessages = useCallback(() => {
         setMessages([]);
         localStorage.removeItem(HISTORY_KEY);
     }, []);
 
-    return {messages, isStreaming, sendMessage, stopStreaming, clearMessages};
+    return {messages, isStreaming, sendMessage, stopStreaming, clearMessages, pendingApproval, answerApproval};
 }

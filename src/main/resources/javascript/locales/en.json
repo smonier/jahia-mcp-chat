@@ -39,7 +39,8 @@
                 "connected": "Connected",
                 "signInRequired": "Not connected - sign in required",
                 "unavailable": "Unavailable"
-            }
+            },
+            "genaiNote": "Jahia GenAI runs the conversation on the server with the Jahia tools only: remote MCP servers and images are not available with it."
         },
         "modelSelector": {
             "label": "Model",
@@ -53,6 +54,12 @@
             "githubLabel": "GitHub raw URL",
             "githubPlaceholder": "https://raw.githubusercontent.com/.../SKILL.md",
             "remove": "Remove {{name}}"
+        },
+        "approval": {
+            "title": "Tool approval",
+            "question": "The assistant wants to run {{tool}}. Allow it?",
+            "approve": "Allow",
+            "deny": "Deny"
         }
     }
 }

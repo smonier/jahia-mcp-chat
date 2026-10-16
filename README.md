@@ -1,74 +1,55 @@
 # Jahia MCP Chat
 
-A **Jahia jContent UI extension** that adds a side-drawer chat panel powered by an LLM of your choice. The assistant is connected to the [Jahia MCP server](https://github.com/Jahia/jahia-mcp), giving it full access to your site's content, pages, and configuration — all from a natural-language conversation inside jContent.
+A **Jahia jContent UI extension** that adds a chat drawer to the back-office, powered by the LLM of your choice
+(Anthropic, OpenAI or DeepSeek) and connected to one or more **MCP servers**: the
+[Jahia MCP server](https://github.com/Jahia/jahia-mcp) of the instance itself, and any remote MCP server
+(a CRM, an analytics service such as BotRank...). Editors manage content, pages and sites in plain language,
+and can combine Jahia with the other services in one conversation.
 
 ---
 
 ## What it does
 
-- Opens a chat drawer directly in the jContent back-office (left nav icon)
-- Routes your messages to an LLM (Anthropic, OpenAI, or DeepSeek)
-- Runs a full **agentic loop** — the assistant chains tool calls until the task is fully complete, without stopping after each step
-- Shows a **live token counter** per response (input / output / total)
-- **Persists settings in JCR** under each user's node — survives browser restarts, machine changes, and Jahia restarts
-- Persists chat history across panel close/reopen via `localStorage`
-- Supports custom **Skills** (upload `.md` files or pull from a GitHub raw URL) to extend what the assistant knows
-
----
-
-## UI overview
-
-```
-┌──────────────────────────────────────────┐
-│ Jahia MCP Chat           [🔄] [⚙] [✕]   │
-├──────────────────────────────────────────┤
-│ ⚙ Tools (32)                            │
-├──────────────────────────────────────────┤
-│                                          │
-│  🔧 site.list ✓                         │
-│     3 sites: digitall, acme, test        │
-│                                          │
-│  Here are the sites on your Jahia        │
-│  instance: digitall, acme, test.         │
-│                                          │
-│  ◈ 1.2k↑ 342↓  1.5k                    │
-├──────────────────────────────────────────┤
-│  Ask anything…              [▶]          │
-└──────────────────────────────────────────┘
-```
+- Opens a chat drawer from the **MCP Chat** button of the jContent header toolbar
+- Routes messages to an LLM through a server-side proxy: API keys never reach the browser
+- Runs a full **agentic loop**: the assistant chains tool calls until the task is done
+- Talks to **several MCP servers**, one OSGi factory configuration each; tools reach the LLM as `<server>__<tool>`
+- Signs each user in to a remote server that requires OAuth, **the way MCP clients do it**: the module registers
+  itself with the server, the user signs in once in a popup, tokens are refreshed automatically
+- Shows each server and its **connection status** in the chat settings, with **Connect** / **Disconnect**
+- Uploads chat attachments (images, files) to the site's media library on request
+- Shows a token counter per response, keeps the chat history in the browser and the preferences in JCR
+- Loads custom **Skills** (Markdown uploaded or pulled from a GitHub raw URL) into the system prompt
 
 ---
 
 ## Architecture
 
 ```
-jContent browser
-    └── McpChatPanel (React 18, Module Federation)
+jContent browser (React 18, Module Federation)
+    └── McpChatAction  (headerPrimaryActions)
             └── McpChatDrawer
-                    ├── useMcpChat      agentic loop, streaming, history
-                    ├── useSettings     JCR-backed persistence + localStorage cache
-                    ├── ChatMessage     bubbles, tool call blocks, token badge
-                    ├── mcpClient       MCP servers: tool catalog, <server>__<tool> calls
-                    ├── McpSettings     LLM preferences + Skills
-                    └── SkillsManager   upload .md / pull from GitHub
+                    ├── useMcpChat     agentic loop, SSE streaming, history
+                    ├── mcpClient      MCP servers: handshake, tool catalog, <server>__<tool> calls, sign-in popup
+                    ├── csrfToken      CSRF guard client (per-URI page tokens)
+                    ├── useConfig      server configuration for the current site
+                    ├── useSettings    per-user preferences (JCR + localStorage cache)
+                    ├── McpSettings    LLM preferences, MCP servers and their status, Skills
+                    └── ChatMessage    bubbles, tool call blocks, token badge
 
-Java OSGi layer
-    ├── LlmProxyServlet   /modules/jahia-mcp-chat/llm-proxy
-    │       ├── → api.anthropic.com/v1/messages
-    │       ├── → api.openai.com/v1/chat/completions
-    │       └── → api.deepseek.com/v1/chat/completions
-    ├── ConfigServlet     /modules/jahia-mcp-chat/config?site=<key>  (no secrets)
-    ├── McpProxyServlet   /modules/jahia-mcp-chat/mcp?server=<name>  remote MCP servers only
-    └── SettingsServlet   /modules/jahia-mcp-chat/settings
-            └── JCR: {userNode} properties mcpchat.settings and mcpchat.oauth.<server>
+Java OSGi layer (/modules/jahia-mcp-chat/...)
+    ├── ConfigServlet     GET  /config?site=<key>        providers, defaults, MCP servers of the site (no secrets)
+    ├── LlmProxyServlet   POST /llm-proxy                → Anthropic / OpenAI / DeepSeek, SSE streamed back
+    ├── McpProxyServlet   POST /mcp?server=<name>        → remote MCP servers, credentials added server-side
+    ├── OAuthServlet      GET  /oauth/start, /oauth/callback, POST /oauth/signout
+    ├── SettingsServlet   GET/POST /settings             per-user preferences
+    ├── McpServerRegistry collects the McpServer factory configurations
+    └── UserOAuthService  client registration, PKCE, per-user tokens
 
-Jahia MCP server (separate module)
-    └── /modules/mcp   JSON-RPC 2.0 endpoint for Jahia tools
+MCP servers
+    ├── local:  /modules/mcp on this Jahia, called by the browser with the user's own session
+    └── remote: https://..., called through McpProxyServlet
 ```
-
-**LLM API calls** are never made from the browser — `LlmProxyServlet` forwards them server-side and streams the SSE response back, avoiding all CORS issues.
-
-**Settings** are read and written by `SettingsServlet` using the current user's authenticated JCR session. No credentials are stored in plain text anywhere on the server.
 
 ---
 
@@ -80,72 +61,120 @@ Jahia MCP server (separate module)
 | **OpenAI** | GPT-4o, GPT-4o Mini, o1, o3-mini |
 | **DeepSeek** | DeepSeek V4 Flash, DeepSeek Chat (V3), DeepSeek Reasoner (R1) |
 
-DeepSeek uses the OpenAI-compatible API format — the same agentic loop handles all three.
+DeepSeek uses the OpenAI-compatible API format: the same agentic loop handles all three.
+
+### Jahia GenAI connector
+
+When the [genai-connector](https://github.com/Jahia/genai-connector) module is installed and configured
+(`/modules/genai/status` reports the agent available), **Jahia GenAI** is offered as one more provider, with the
+provider and model of the connector's own configuration. With it selected:
+
+- the agentic loop runs on the server (`/modules/genai/agent/stream`), the Jahia MCP tools in-process under the
+  user's session, and the module's provider keys are not used;
+- a tool call the connector flags for approval pauses the run: the chat shows **Allow** / **Deny** above the input;
+- remote MCP servers and images are not available, because the connector's agent offers only the Jahia tools and
+  takes text turns. Pick another provider for those conversations.
+
+Set `DEFAULT_PROVIDER=genai` to make it the default.
 
 ---
 
 ## Prerequisites
 
-- Jahia 8.2+ running locally or remotely
-- [Jahia MCP server](https://github.com/Jahia/jahia-mcp) installed and running
+- Jahia 8.2+ (tested on 8.2.3.2, jahia-csrf-guard 4.3.0)
+- The [Jahia MCP server](https://github.com/Jahia/jahia-mcp) module installed, for the local tools
 - An API key for at least one LLM provider
-- Node 18+ and Yarn 1.x (for front-end development)
-- Java 17 (for Maven build)
+- To build: Java 17 (`JAVA_HOME` pointing to it: Java 21+ breaks the bundle plugin) and Maven 3.8. Maven
+  downloads Node 18 and Yarn itself through `frontend-maven-plugin`.
 
 ---
 
 ## Installation
 
-### Option A — Build from source
-
 ```bash
 git clone https://github.com/smonier/jahia-mcp-chat.git
 cd jahia-mcp-chat
-
-# Front-end + Java build
 JAVA_HOME=/path/to/java17 mvn clean install
-
-# Copy target/jahia-mcp-chat-*.jar to $JAHIA_HOME/data/modules/
-# or: mvn jahia:deploy (if jahia-maven-plugin is configured)
 ```
 
-### Option B — Install the JAR directly
+Deploy `target/jahia-mcp-chat-1.0.0-SNAPSHOT.jar` from the Jahia module administration, or with the
+provisioning API:
 
-Download the latest release JAR from the [Releases](https://github.com/smonier/jahia-mcp-chat/releases) page and drop it into your Jahia modules folder.
+```bash
+curl -u root:<password> -X POST http://localhost:8080/modules/api/bundles \
+  -F "bundle=@target/jahia-mcp-chat-1.0.0-SNAPSHOT.jar" -F "start=true"
+```
+
+The chat button shows on every site; the MCP servers it offers depend on the site (see `sites` below).
 
 ---
 
 ## Configuration
 
 All server-side configuration lives in `digital-factory-data/karaf/etc/` and is picked up without a redeploy.
+It can also be edited from **Administration > Server > Configuration > OSGi configurations**, where
+"Jahia MCP Chat - MCP server" is a factory: one instance per server.
 
 ### LLM providers - `org.jahia.se.modules.mcpchat.cfg`
 
 | Key | Description |
 |---|---|
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY` | A blank key hides the provider |
-| `DEFAULT_PROVIDER`, `DEFAULT_MODEL` | Used when a user has no saved preference |
+| `DEFAULT_PROVIDER`, `DEFAULT_MODEL` | Used when a user has no saved preference (`genai` for the Jahia GenAI connector) |
 | `MAX_TOKENS` | Upper bound of output tokens per response |
-| `SYSTEM_PROMPT_APPENDIX` | Instructions appended to the system prompt |
+| `SYSTEM_PROMPT_APPENDIX` | Instructions appended to the system prompt (site conventions, tone, forbidden operations) |
+| `PUBLIC_BASE_URL` | Base URL users reach Jahia at, for the OAuth redirect URI. Blank: taken from the request. Set it behind a reverse proxy |
 
 ### MCP servers - one `org.jahia.se.modules.mcpchat.server-<name>.cfg` per server
 
 | Key | Description |
 |---|---|
-| `name` | Lowercase letters, digits, `-`, single `_`. Tools appear to the LLM as `<name>__<tool>` |
-| `label` | Name shown to users |
-| `url` | Relative (`/modules/mcp`): a server on this Jahia, called by the browser with the user's session. Absolute (`https://...`): a remote server, called through `McpProxyServlet` |
-| `authHeader`, `authValue` | Credentials sent to a remote server (e.g. `Authorization` / `Bearer <token>`); never sent to the browser |
-| `oauthClientId`, `oauthClientSecret`, `oauthScope` | Client credentials for a remote server that requires OAuth: the module fetches a token, caches it until it expires and sends it as `Authorization: Bearer` |
-| `oauthTokenUrl` | Token endpoint; empty means discovered from the server's `/.well-known/oauth-protected-resource` metadata |
+| `name` | Lowercase letters, digits, `-`, single `_`. Tools reach the LLM as `<name>__<tool>`. Defaults to the file suffix |
+| `label` | Name shown to users. Defaults to the name |
+| `url` | Relative (`/modules/mcp`): a server on this Jahia, called by the browser with the user's session. Absolute (`https://...`): a remote server, called through the module's proxy |
+| `authHeader`, `authValue` | A fixed credential sent to a remote server (e.g. `Authorization` / `Bearer <token>`) |
+| `oauthGrant` | For a remote server that requires OAuth. `authorization_code` (default): each user signs in. `client_credentials`: one account for every user |
+| `oauthClientId`, `oauthClientSecret` | Optional for `authorization_code` (the module registers itself when empty); required for `client_credentials` |
+| `oauthScope` | Scopes to request. Empty: the scopes the server advertises |
+| `oauthTokenUrl` | Token endpoint for `client_credentials`. Empty: discovered from the server's metadata |
 | `timeoutMs` | Remote request timeout (default 60000) |
 | `sites` | Comma-separated site keys allowed to use the server; empty means every site |
 | `enabled` | `false` hides the server |
 
-The module ships `server-jahia.cfg` for the local Jahia MCP server. With no server file at all, the chat falls back to `/modules/mcp`. Example of a remote server:
+The module ships `server-jahia.cfg` for the local Jahia MCP server. With no server file at all, the chat falls
+back to `/modules/mcp`.
+
+#### A remote server with OAuth sign-in (BotRank)
+
+An `mcpServers` entry such as `"botrank": {"type": "http", "url": "https://api.botrank.ai/mcp/public"}`
+becomes:
 
 ```properties
-# org.jahia.se.modules.mcpchat.server-crm.cfg
+# karaf/etc/org.jahia.se.modules.mcpchat.server-botrank.cfg
+name=botrank
+label=BotRank
+url=https://api.botrank.ai/mcp/public
+```
+
+Nothing else is needed. On the first call the server answers 401, the chat settings show BotRank as
+**Not connected** with a **Connect** button, and:
+
+1. The module reads the server's OAuth metadata (`/.well-known/oauth-protected-resource`, then the
+   authorization server's metadata).
+2. It registers itself as "Jahia MCP Chat" (dynamic client registration, once per server and redirect URI,
+   kept in the bundle's data folder).
+3. The sign-in page opens in a popup (authorization code with PKCE); the user signs in with their own account.
+4. The server sends the browser back to `/modules/jahia-mcp-chat/oauth/callback`; the module exchanges the
+   code and keeps the tokens for that user. The settings show **Connected** and the server's tool count.
+
+Tokens are refreshed automatically. **Disconnect** forgets them. A server that offers no client registration
+takes a pre-registered `oauthClientId` (and `oauthClientSecret` for a confidential client), with
+`<PUBLIC_BASE_URL>/modules/jahia-mcp-chat/oauth/callback` as its redirect URI.
+
+#### A remote server with a fixed credential
+
+```properties
+# karaf/etc/org.jahia.se.modules.mcpchat.server-crm.cfg
 name=crm
 label=CRM
 url=https://mcp.example.com/mcp
@@ -154,74 +183,56 @@ authValue=Bearer <token>
 sites=digitall
 ```
 
-A remote server behind OAuth, such as BotRank (the `{"type": "http", "url": ...}` entry of an `mcpServers` JSON):
+#### A remote server with one account for all users
 
 ```properties
-# org.jahia.se.modules.mcpchat.server-botrank.cfg
-name=botrank
-label=BotRank
-url=https://api.botrank.ai/mcp/public
+name=analytics
+url=https://mcp.example.com/mcp
+oauthGrant=client_credentials
 oauthClientId=<client id>
 oauthClientSecret=<client secret>
-oauthScope=botrank-mcp:read
+oauthScope=mcp:read
 ```
-
-A user sees only the servers of the site open in jContent, and only on a site they have jContent access to. Uploading chat attachments to the DAM uses the first local server.
 
 ### User preferences (gear icon in the chat)
 
-| Field | Description |
+| Section | Content |
 |---|---|
-| **Provider** | One of the providers with a key configured |
-| **Model** | Model for the selected provider |
-| **Max output tokens** | Output token budget per LLM response (capped by `MAX_TOKENS`) |
-
-**Settings are stored in JCR** under your user node — they persist across browser restarts and are tied to your Jahia account, not the browser. On panel open, settings are loaded from the server first; `localStorage` is kept as a fast-read cache.
+| **LLM provider** | Provider (among those with a key), model, max output tokens (capped by `MAX_TOKENS`) |
+| **MCP servers** | Every server of the site with its status (Connected, Not connected, Unavailable) and tool count; **Connect** / **Disconnect** for servers that need a sign-in |
+| **Skills** | Markdown files added to the system prompt |
 
 ---
 
-## Skills
+## Security
 
-Skills are Markdown documents prepended to the system prompt on every message. They extend what the assistant knows — custom workflows, content conventions, site-specific rules.
+| Concern | How it is handled |
+|---|---|
+| LLM API keys | Only in the OSGi configuration; `LlmProxyServlet` adds them server-side |
+| Remote MCP credentials | `authValue`, client secrets and user tokens stay on the server; `/config` never returns them, nor a remote server's URL |
+| Who may call | Every servlet refuses guests. `/config`, `/mcp` and `/oauth/start` require jContent access to the site; a server outside its `sites` list is refused |
+| Proxy target | Always the configured URL, never a URL from the request; redirects are not followed |
+| CSRF | Everything under `/modules/jahia-mcp-chat/*` is under the CSRF guard. Only `/oauth/start` and `/oauth/callback` are whitelisted: they are top-level navigations, and the callback is protected by the OAuth `state` (single use, bound to the session and the user, 10 minutes) |
+| User tokens | JCR property `mcpchat.oauth.<server>` of the user node, written with the user's own session |
 
-**Upload a `.md` file** — click the upload button in the Skills section of settings.
+---
 
-**Pull from GitHub** — paste a raw GitHub URL (e.g. `https://raw.githubusercontent.com/org/repo/main/SKILL.md`) and click Pull.
+## Data kept
 
-Loaded skills appear as chips and can be removed individually. Skills are stored in `localStorage` (per browser) since they can be large files.
+| What | Where |
+|---|---|
+| Provider, model, max tokens | JCR property `mcpchat.settings` of the user node |
+| MCP sign-ins (access and refresh tokens) | JCR properties `mcpchat.oauth.<server>` of the user node |
+| OAuth clients the module registered | `oauth-clients.properties` in the bundle's data folder |
+| Chat history, Skills | Browser `localStorage` |
 
 ---
 
 ## Token consumption
 
-Each assistant response shows a small badge under the message bubble:
-
-```
-◈  1.2k↑  342↓  1.5k
-```
-
-| Symbol | Meaning |
-|---|---|
-| `↑` | Input tokens — prompt + history + system prompt + tool results |
-| `↓` | Output tokens — assistant text + tool call arguments |
-| last value | Total for that response |
-
-Numbers ≥ 1000 are shown as `1.2k`. Hover the badge for exact counts.
-
-The token budget per response is controlled by **Max output tokens** in settings. If the LLM hits the limit mid-response, the agentic loop detects assembled tool calls and continues anyway rather than dropping work silently.
-
----
-
-## Settings persistence
-
-| What | Where | Survives restart? |
-|---|---|---|
-| Provider, model, max tokens | JCR property `mcpchat.settings` of the user node | Yes - server-side, per user |
-| MCP server sign-ins (OAuth tokens) | JCR properties `mcpchat.oauth.<server>` of the user node, never sent to the browser | Yes - server-side, per user |
-| Chat history | `localStorage` | Yes — browser-local |
-| Skills | `localStorage` | Yes — browser-local |
-
-If the JCR servlet is unreachable (e.g. not logged in), the panel falls back to `localStorage` silently.
+Each assistant response shows a badge such as `◈ 1.2k↑ 342↓ 1.5k`: input tokens (prompt, history, tool
+results), output tokens, total. Hover it for exact counts. Tool results are summarised by type before they go
+back to the LLM, older turns are compressed and the history is trimmed to the last 20 turns.
 
 ---
 
@@ -229,25 +240,24 @@ If the JCR servlet is unreachable (e.g. not logged in), the panel falls back to 
 
 ```
 jahia-mcp-chat/
-├── pom.xml                              # Maven OSGi bundle (Java 17, Jahia 8.2)
-├── package.json / webpack.config.js     # Webpack 5 + Module Federation
-├── src/
-│   ├── javascript/
-│   │   ├── index.js                     # jahiaApp-init:50 registration callback
-│   │   ├── init.js                      # loadNamespaces + register drawer action
-│   │   └── McpChat/
-│   │       ├── McpChatDrawer.jsx        # Main drawer shell + header
-│   │       ├── ChatMessage.jsx          # Message bubbles, tool call blocks, token badge
-│   │       ├── McpSettings.jsx          # Settings panel (MCP + LLM + Skills)
-│   │       ├── SkillsManager.jsx        # Upload / GitHub pull for .md skills
-│   │       ├── useMcpChat.js            # Agentic loop, SSE streaming, history
-│   │       └── useSettings.js           # JCR-backed settings with localStorage cache
-│   └── main/java/.../servlet/
-│       ├── LlmProxyServlet.java         # Server-side LLM proxy — CORS + SSE streaming
-│       └── SettingsServlet.java         # Per-user JCR settings GET/POST
+├── pom.xml                                  # OSGi bundle, Jahia 8.2 parent
+├── package.json / webpack.config.js         # Webpack 5 + Module Federation
+├── src/javascript/
+│   ├── init.js                              # registers the header action
+│   └── McpChat/
+│       ├── McpChatAction.jsx / McpChatDrawer.jsx
+│       ├── McpSettings.jsx                  # LLM, MCP servers, Skills
+│       ├── mcpClient.js                     # MCP calls, tool prefixes, sign-in popup
+│       ├── useMcpChat.js                    # agentic loop
+│       ├── csrfToken.js, useConfig.js, useSettings.js
+│       └── ChatMessage.jsx, SkillsManager.jsx, fileAttachments.js
+├── src/main/java/org/jahia/se/modules/mcpchat/
+│   ├── config/                              # McpChatConfigService, McpServer (+Config), McpServerRegistry
+│   ├── oauth/                               # OAuthDiscovery, UserOAuthService
+│   └── servlet/                             # Config, LlmProxy, McpProxy, OAuth, Settings servlets
 └── src/main/resources/
-    ├── javascript/apps/                 # Webpack output (committed)
-    └── javascript/locales/              # en.json, fr.json
+    ├── META-INF/configurations/             # main cfg, server-jahia.cfg, CSRF guard cfg
+    └── javascript/apps/, javascript/locales/ # webpack output (committed), en.json, fr.json
 ```
 
 ---
@@ -255,40 +265,18 @@ jahia-mcp-chat/
 ## Development
 
 ```bash
-# Front-end only (fast iteration)
-yarn build
-
-# Full build (front-end + Java OSGi bundle)
 JAVA_HOME=/path/to/java17 mvn clean install
-
-# Deploy JAR to running Jahia
-cp target/jahia-mcp-chat-*.jar $JAHIA_HOME/data/modules/
+curl -u root:<password> -X POST http://localhost:8080/modules/api/bundles \
+  -F "bundle=@target/jahia-mcp-chat-1.0.0-SNAPSHOT.jar" -F "start=true"
 ```
 
-> Never run `yarn dev` from an automated process — it is an interactive file watcher for human use only.
-
----
-
-## How the agentic loop works
-
-1. User sends a message
-2. The LLM receives a system prompt containing: MCP tool catalog with full parameter signatures, loaded Skills, and the current jContent site context
-3. If the LLM emits a `mcp_call` tool use block, the hook executes it against the Jahia MCP server and feeds the summarized result back
-4. Steps 3 repeat until `stop_reason: end_turn` — the LLM decides when the task is done
-5. The final text response is displayed with a token usage badge
-
-**Token optimization:** results are summarized by type before being fed back to the LLM (e.g. a 200-node list becomes a 30-item summary). Older turns in the history are progressively compressed. History is trimmed to the last 20 turns.
-
----
-
-## License
-
-Apache 2.0 — see [LICENSE](LICENSE).
+Never run `yarn dev` from an automated process: it is an interactive watcher. See [CHANGELOG.md](CHANGELOG.md)
+for the changes, and [`.agents/`](.agents/README.md) for the notes AI agents read before working on the module.
 
 ---
 
 ## Related
 
-- [Jahia MCP Server](https://github.com/Jahia/jahia-mcp) — the MCP tools this chat panel connects to
-- [Jahia JavaScript Modules](https://github.com/Jahia/javascript-modules) — the React 19 template set framework
-- [Jahia UI Extender](https://github.com/Jahia/javascript-components) — the React 18 back-office extension framework used here
+- [Jahia MCP Server](https://github.com/Jahia/jahia-mcp): the Jahia tools the chat calls
+- [Jahia UI Extender](https://github.com/Jahia/javascript-components): the React 18 back-office extension framework
+- [Model Context Protocol, authorization](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization): the sign-in flow the module follows

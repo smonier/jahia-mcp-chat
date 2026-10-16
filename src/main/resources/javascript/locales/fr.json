@@ -39,7 +39,8 @@
                 "connected": "Connecté",
                 "signInRequired": "Non connecté - connexion requise",
                 "unavailable": "Indisponible"
-            }
+            },
+            "genaiNote": "Jahia GenAI mène la conversation sur le serveur avec les seuls outils Jahia : les serveurs MCP distants et les images ne sont pas disponibles."
         },
         "modelSelector": {
             "label": "Modèle",
@@ -53,6 +54,12 @@
             "githubLabel": "URL GitHub brute",
             "githubPlaceholder": "https://raw.githubusercontent.com/.../SKILL.md",
             "remove": "Supprimer la compétence {{name}}"
+        },
+        "approval": {
+            "title": "Validation d'outil",
+            "question": "L'assistant veut exécuter {{tool}}. L'autoriser ?",
+            "approve": "Autoriser",
+            "deny": "Refuser"
         }
     }
 }

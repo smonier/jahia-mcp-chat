@@ -1,5 +1,6 @@
 import {useCallback, useState, useEffect} from 'react';
 import {getCsrfHeaders, storeResponseToken, invalidateTokens} from './csrfToken';
+import {fetchGenAiStatus, GENAI_PROVIDER} from './genaiAgent';
 
 const ctx = () => window.contextJsParameters?.contextPath || '';
 const CONFIG_API = () => `${ctx()}/modules/jahia-mcp-chat/config`;
@@ -31,7 +32,19 @@ export function useConfig(siteKey) {
                     storeResponseToken(path, r);
                     return r.json();
                 })
-                .then(data => { if (data) setConfig({...EMPTY_CONFIG, ...data}); })
+                .then(async data => {
+                    if (!data) return;
+                    // The GenAI connector is one more provider when it is installed with a working agent
+                    const genai = await fetchGenAiStatus();
+                    setConfig({
+                        ...EMPTY_CONFIG,
+                        ...data,
+                        genai,
+                        availableProviders: genai
+                            ? [...(data.availableProviders || []), GENAI_PROVIDER]
+                            : (data.availableProviders || [])
+                    });
+                })
                 .catch(() => {})
                 .finally(() => setConfigLoaded(true))
         );

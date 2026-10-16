@@ -327,3 +327,57 @@
 
 .sendBtnStop { background: #c00d0d; }
 .sendBtnStop:hover:not(:disabled) { background: #a30000; }
+
+.approvalBar {
+    border-top: 1px solid #f0c36d;
+    background: #fff8e6;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.approvalText {
+    margin: 0;
+    font-size: 13px;
+    color: #131c21;
+}
+
+.approvalArgs {
+    margin: 0;
+    max-height: 120px;
+    overflow: auto;
+    font-size: 11px;
+    background: #ffffff;
+    border: 1px solid #e0e2e5;
+    border-radius: 4px;
+    padding: 6px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.approvalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.approvalApprove,
+.approvalDeny {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.approvalApprove {
+    border: 1px solid #0072b1;
+    background: #0072b1;
+    color: #ffffff;
+}
+
+.approvalDeny {
+    border: 1px solid #c4c8cd;
+    background: #ffffff;
+    color: #131c21;
+}

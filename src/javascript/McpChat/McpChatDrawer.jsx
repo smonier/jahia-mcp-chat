@@ -18,7 +18,7 @@ export function McpChatDrawer({isOpen, onClose}) {
     const [signInRequired, setSignInRequired] = useState([]);
     const [mcpTools, setMcpTools] = useState([]);
     const [toolsLoading, setToolsLoading] = useState(false);
-    const {messages, isStreaming, sendMessage, stopStreaming, clearMessages} = useMcpChat(settings, mcpTools, siteKey, config);
+    const {messages, isStreaming, sendMessage, stopStreaming, clearMessages, pendingApproval, answerApproval} = useMcpChat(settings, mcpTools, siteKey, config);
     const [input, setInput] = useState('');
     const [attachments, setAttachments] = useState([]);
     const [showSettings, setShowSettings] = useState(false);
@@ -202,6 +202,25 @@ export function McpChatDrawer({isOpen, onClose}) {
                     ))}
                     <div ref={messagesEndRef} />
                 </div>
+
+                {pendingApproval && (
+                    <div className={styles.approvalBar} role="alertdialog" aria-label={t('approval.title')}>
+                        <p className={styles.approvalText}>
+                            {t('approval.question', {tool: pendingApproval.name})}
+                        </p>
+                        {pendingApproval.argumentsJson && (
+                            <pre className={styles.approvalArgs}>{pendingApproval.argumentsJson}</pre>
+                        )}
+                        <div className={styles.approvalActions}>
+                            <button type="button" className={styles.approvalDeny} onClick={() => answerApproval(false)}>
+                                {t('approval.deny')}
+                            </button>
+                            <button type="button" className={styles.approvalApprove} onClick={() => answerApproval(true)}>
+                                {t('approval.approve')}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Input */}
                 <div className={styles.inputArea}>

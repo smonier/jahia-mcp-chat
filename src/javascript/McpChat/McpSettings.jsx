@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {SkillsManager} from './SkillsManager';
 import {signIn, signOut, TOOL_SEPARATOR} from './mcpClient';
+import {GENAI_PROVIDER} from './genaiAgent';
 import styles from './McpSettings.module.css';
 
 const MODELS_BY_PROVIDER = {
@@ -26,7 +27,8 @@ const MODELS_BY_PROVIDER = {
 const PROVIDER_LABELS = {
     anthropic: 'Anthropic',
     openai: 'OpenAI',
-    deepseek: 'DeepSeek'
+    deepseek: 'DeepSeek',
+    [GENAI_PROVIDER]: 'Jahia GenAI'
 };
 
 function serverStatus(server, toolCount, toolsLoading, needsSignIn) {
@@ -107,12 +109,15 @@ export function McpSettings({settings, config, onUpdate, onAddSkill, onRemoveSki
         ? settings.llmProvider
         : (availableProviders.includes(config?.defaultProvider) ? config.defaultProvider : availableProviders[0]);
 
-    const models = MODELS_BY_PROVIDER[effectiveProvider] || [];
+    const models = effectiveProvider === GENAI_PROVIDER
+        ? [{id: '', label: [config?.genai?.provider, config?.genai?.model].filter(Boolean).join(' / ') || 'Jahia GenAI'}]
+        : MODELS_BY_PROVIDER[effectiveProvider] || [];
 
     // Resolve effective model: user pref if in list, else OSGi default, else first in list
-    const effectiveModel = (settings.selectedModel && models.find(m => m.id === settings.selectedModel))
+    const configuredModel = (settings.selectedModel && models.find(m => m.id === settings.selectedModel))
         ? settings.selectedModel
         : (config?.defaultModel || models[0]?.id || '');
+    const effectiveModel = effectiveProvider === GENAI_PROVIDER ? '' : configuredModel;
 
     const effectiveMaxTokens = settings.maxTokens || config?.maxTokens || 4096;
 
@@ -157,6 +162,9 @@ export function McpSettings({settings, config, onUpdate, onAddSkill, onRemoveSki
                                     ))}
                                 </select>
                             </label>
+                            {effectiveProvider === GENAI_PROVIDER && (
+                                <p className={styles.noProviders}>{t('settings.genaiNote')}</p>
+                            )}
                             <label className={styles.field}>
                                 <span className={styles.fieldLabel}>{t('settings.maxTokens')}</span>
                                 <input
