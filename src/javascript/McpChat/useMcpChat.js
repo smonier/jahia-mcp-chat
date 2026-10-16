@@ -1,5 +1,6 @@
 import {useCallback, useRef, useState} from 'react';
 import {getCsrfHeaders, storeResponseToken, invalidateTokens} from './csrfToken';
+import {callTool, fetchAllTools, serverUrl, TOOL_SEPARATOR} from './mcpClient';
 
 const ctx = () => window.contextJsParameters?.contextPath || '';
 const LLM_PROXY = () => `${ctx()}/modules/jahia-mcp-chat/llm-proxy`;
@@ -7,7 +8,7 @@ const LLM_PROXY = () => `${ctx()}/modules/jahia-mcp-chat/llm-proxy`;
 const MCP_TOOL_DEFINITIONS = [
     {
         name: 'mcp_call',
-        description: 'Call a Jahia MCP tool.',
+        description: `Call an MCP tool. "tool" is <server>${TOOL_SEPARATOR}<tool> as listed in the tool catalog.`,
         input_schema: {
             type: 'object',
             properties: {
@@ -32,27 +33,6 @@ const MCP_TOOL_DEFINITIONS = [
     }
 ];
 
-let mcpCallId = 1;
-
-async function mcpJsonRpc(mcpEndpoint, mcpToken, method, params) {
-    const res = await fetch(mcpEndpoint, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(mcpToken ? {'Authorization': `APIToken ${mcpToken}`} : {})
-        },
-        body: JSON.stringify({jsonrpc: '2.0', id: String(mcpCallId++), method, params: params || {}})
-    });
-    if (!res.ok) throw new Error(`MCP HTTP ${res.status}: ${await res.text()}`);
-    const json = await res.json();
-    if (json.error) throw new Error(`MCP: ${json.error.message || JSON.stringify(json.error)}`);
-    return json.result;
-}
-
-async function callMcpTool(mcpEndpoint, mcpToken, toolName, params) {
-    return mcpJsonRpc(mcpEndpoint, mcpToken, 'tools/call', {name: toolName, arguments: params || {}});
-}
-
 function base64ToBytes(b64) {
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);
@@ -64,7 +44,10 @@ function base64ToBytes(b64) {
 // data, but the chat client holds the attached bytes AND talks to the MCP
 // server — so the upload (media.upload.create ticket -> PUT -> finalize) runs
 // locally and only the resulting JCR path goes back to the model.
-async function uploadAttachment(mcpEndpoint, mcpToken, input, attachments) {
+async function uploadAttachment(servers, siteKey, input, attachments) {
+    const local = (servers || []).find(s => s.local);
+    if (!local) return {error: 'No MCP server on this Jahia instance is configured; attachments cannot be uploaded.'};
+    const call = (tool, args) => callTool([local], siteKey, tool, args);
     const att = (attachments || []).find(a => a.name === input.attachmentName);
     if (!att) {
         const names = (attachments || []).map(a => a.name).join(', ') || '(none)';
@@ -79,13 +62,13 @@ async function uploadAttachment(mcpEndpoint, mcpToken, input, attachments) {
 
     // The DAM folder must exist before finalize (locale required even for folders)
     try {
-        await callMcpTool(mcpEndpoint, mcpToken, 'content.create', {
+        await call('content.create', {
             parentPath: `/sites/${input.siteKey}/files`,
             name: folder, nodeType: 'jnt:folder', locale: 'en'
         });
     } catch {} // already there
 
-    const ticketRes = unwrapMcpResult(await callMcpTool(mcpEndpoint, mcpToken, 'media.upload.create', {
+    const ticketRes = unwrapMcpResult(await call('media.upload.create', {
         siteKey: input.siteKey, folder,
         fileName: att.name, mimeType, sizeBytes: bytes.length
     }));
@@ -93,19 +76,16 @@ async function uploadAttachment(mcpEndpoint, mcpToken, input, attachments) {
     const token = ticketRes.token;
     if (!uploadUrl || !token) return {error: `Unexpected media.upload.create reply: ${JSON.stringify(ticketRes)}`};
 
-    const putUrl = new URL(uploadUrl, mcpEndpoint).toString();
+    const putUrl = new URL(uploadUrl, serverUrl(local)).toString();
     const putRes = await fetch(putUrl, {
         method: 'PUT',
-        credentials: 'include',
-        headers: {
-            'Content-Type': mimeType,
-            ...(mcpToken ? {'Authorization': `APIToken ${mcpToken}`} : {})
-        },
+        credentials: 'same-origin',
+        headers: {'Content-Type': mimeType},
         body: bytes
     });
     if (!putRes.ok) return {error: `Upload PUT failed: HTTP ${putRes.status}`};
 
-    const fin = unwrapMcpResult(await callMcpTool(mcpEndpoint, mcpToken, 'media.upload.finalize', {token}));
+    const fin = unwrapMcpResult(await call('media.upload.finalize', {token}));
     const path = fin.path || fin.nodePath;
     if (!path) return {error: `Unexpected media.upload.finalize reply: ${JSON.stringify(fin)}`};
     return rewrap({uploaded: att.name, path, sizeBytes: bytes.length});
@@ -237,13 +217,8 @@ function truncateForLlm(result) {
     return str.length > 4000 ? str.slice(0, 4000) + ' [truncated]' : str;
 }
 
-export async function fetchMcpTools(mcpEndpoint, mcpToken) {
-    try {
-        const result = await mcpJsonRpc(mcpEndpoint, mcpToken, 'tools/list', {});
-        return result?.tools || [];
-    } catch {
-        return [];
-    }
+export function fetchMcpTools(servers, siteKey) {
+    return fetchAllTools(servers, siteKey);
 }
 
 function formatToolSignature(tool) {
@@ -262,13 +237,18 @@ function formatToolSignature(tool) {
         : `${tool.name}${desc}`;
 }
 
-function buildSystemPrompt(mcpEndpoint, skills, mcpTools, siteKey, systemPromptAppendix) {
+function buildSystemPrompt(servers, skills, mcpTools, siteKey, systemPromptAppendix) {
     const siteCtx = siteKey ? `\nThe user is currently working on site: **${siteKey}**. Use this as the default site for all operations unless told otherwise.\n` : '';
 
     const toolCatalog = mcpTools && mcpTools.length > 0
         ? '\n\n## MCP Tool Catalog\n\n```\n' +
           mcpTools.map(formatToolSignature).join('\n\n') +
           '\n```'
+        : '';
+
+    const serversText = servers.length > 0
+        ? '\n\n## MCP servers\n\n' + servers.map(s => `- \`${s.name}\`: ${s.label}`).join('\n') +
+          `\n\nEvery tool name is <server>${TOOL_SEPARATOR}<tool>: pass it exactly as listed in the catalog as the \`tool\` argument of \`mcp_call\` (e.g. \`${servers[0].name}${TOOL_SEPARATOR}site.list\`).`
         : '';
 
     const skillsText = skills.length > 0
@@ -297,7 +277,7 @@ The only exception is a purely conversational message with no site action needed
 2. Call \`page.create\` — it creates the page AND returns the full page structure: available content containers with their paths and content-type constraints. Use this structure to know exactly where and what to add next.
 3. If you need to inspect the structure of an **existing** page (not a new one), call \`page.structure\` directly — it returns the same container map as \`page.create\`.
 4. To discover all content types available on the current site, call \`site.types\`. Use this before adding content if you are unsure which type name to use.
-${toolCatalog}${skillsText}${systemPromptAppendix ? '\n\n## Client-specific instructions\n\n' + systemPromptAppendix : ''}`;
+${serversText}${toolCatalog}${skillsText}${systemPromptAppendix ? '\n\n## Client-specific instructions\n\n' + systemPromptAppendix : ''}`;
 }
 
 // Compress older tool result messages to avoid accumulating huge contexts across iterations
@@ -631,7 +611,7 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
         abortRef.current = controller;
 
         // Resolve effective values: user preference overrides OSGi default
-        const mcpEndpoint   = osgiConfig.mcpEndpoint || 'http://localhost:8080/modules/mcp';
+        const servers       = osgiConfig.mcpServers || [];
         const provider      = (settings.llmProvider && osgiConfig.availableProviders?.includes(settings.llmProvider))
                                 ? settings.llmProvider
                                 : osgiConfig.defaultProvider || 'anthropic';
@@ -639,18 +619,15 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
         const maxTokens     = settings.maxTokens || osgiConfig.maxTokens || 4096;
         const useOpenAICompat = provider === 'openai' || provider === 'deepseek';
 
-        // Personal MCP token from user settings (empty string = rely on session cookie auth)
-        const mcpToken = settings.mcpToken || '';
-
         const onToolUse = async (id, name, input) => {
-            if (!mcpEndpoint) return {error: 'MCP endpoint not configured'};
+            if (servers.length === 0) return {error: 'No MCP server is configured for this site'};
             try {
                 if (name === 'mcp_call') {
-                    return await callMcpTool(mcpEndpoint, mcpToken, input.tool, input.params);
+                    return await callTool(servers, siteKey, input.tool, input.params);
                 }
                 if (name === 'upload_attachment') {
                     // executed locally: the browser holds the attachment bytes
-                    return await uploadAttachment(mcpEndpoint, mcpToken, input, attachments);
+                    return await uploadAttachment(servers, siteKey, input, attachments);
                 }
             } catch (err) {
                 return {error: err.message};
@@ -658,7 +635,7 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
             return {error: `Unknown tool: ${name}`};
         };
 
-        const systemPrompt = buildSystemPrompt(mcpEndpoint, settings.skills || [], mcpTools, siteKey, osgiConfig.systemPromptAppendix || '');
+        const systemPrompt = buildSystemPrompt(servers, settings.skills || [], mcpTools, siteKey, osgiConfig.systemPromptAppendix || '');
 
         // Keep last 20 messages; truncate old text content to save tokens
         // For the last (current) user message, build multi-modal content with any attachments
@@ -726,7 +703,7 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
         });
         setIsStreaming(false);
         abortRef.current = null;
-    }, [messages, isStreaming, settings, mcpTools]);
+    }, [messages, isStreaming, settings, mcpTools, siteKey, osgiConfig]);
 
     const stopStreaming = useCallback(() => { abortRef.current?.abort(); }, []);
     const clearMessages = useCallback(() => {

@@ -48,7 +48,8 @@ jContent browser
                     ├── useMcpChat      agentic loop, streaming, history
                     ├── useSettings     JCR-backed persistence + localStorage cache
                     ├── ChatMessage     bubbles, tool call blocks, token badge
-                    ├── McpSettings     MCP endpoint + LLM config + Skills
+                    ├── mcpClient       MCP servers: tool catalog, <server>__<tool> calls
+                    ├── McpSettings     LLM preferences + Skills
                     └── SkillsManager   upload .md / pull from GitHub
 
 Java OSGi layer
@@ -56,6 +57,8 @@ Java OSGi layer
     │       ├── → api.anthropic.com/v1/messages
     │       ├── → api.openai.com/v1/chat/completions
     │       └── → api.deepseek.com/v1/chat/completions
+    ├── ConfigServlet     /modules/jahia-mcp-chat/config?site=<key>  (no secrets)
+    ├── McpProxyServlet   /modules/jahia-mcp-chat/mcp?server=<name>  remote MCP servers only
     └── SettingsServlet   /modules/jahia-mcp-chat/settings
             └── JCR: {userNode}/mcp-chat-settings (jnt:content, data property)
 
@@ -85,7 +88,6 @@ DeepSeek uses the OpenAI-compatible API format — the same agentic loop handles
 
 - Jahia 8.2+ running locally or remotely
 - [Jahia MCP server](https://github.com/Jahia/jahia-mcp) installed and running
-- A personal API token for your Jahia instance
 - An API key for at least one LLM provider
 - Node 18+ and Yarn 1.x (for front-end development)
 - Java 17 (for Maven build)
@@ -115,23 +117,50 @@ Download the latest release JAR from the [Releases](https://github.com/smonier/j
 
 ## Configuration
 
-Open jContent and click the **chat bubble icon** in the left navigation bar. Go to **Settings** (gear icon) on first use:
+All server-side configuration lives in `digital-factory-data/karaf/etc/` and is picked up without a redeploy.
 
-### MCP Server
+### LLM providers - `org.jahia.se.modules.mcpchat.cfg`
+
+| Key | Description |
+|---|---|
+| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY` | A blank key hides the provider |
+| `DEFAULT_PROVIDER`, `DEFAULT_MODEL` | Used when a user has no saved preference |
+| `MAX_TOKENS` | Upper bound of output tokens per response |
+| `SYSTEM_PROMPT_APPENDIX` | Instructions appended to the system prompt |
+
+### MCP servers - one `org.jahia.se.modules.mcpchat.server-<name>.cfg` per server
+
+| Key | Description |
+|---|---|
+| `name` | Lowercase letters, digits, `-`, single `_`. Tools appear to the LLM as `<name>__<tool>` |
+| `label` | Name shown to users |
+| `url` | Relative (`/modules/mcp`): a server on this Jahia, called by the browser with the user's session. Absolute (`https://...`): a remote server, called through `McpProxyServlet` |
+| `authHeader`, `authValue` | Credentials sent to a remote server (e.g. `Authorization` / `Bearer <token>`); never sent to the browser |
+| `timeoutMs` | Remote request timeout (default 60000) |
+| `sites` | Comma-separated site keys allowed to use the server; empty means every site |
+| `enabled` | `false` hides the server |
+
+The module ships `server-jahia.cfg` for the local Jahia MCP server. With no server file at all, the chat falls back to `/modules/mcp`. Example of a remote server:
+
+```properties
+# org.jahia.se.modules.mcpchat.server-crm.cfg
+name=crm
+label=CRM
+url=https://mcp.example.com/mcp
+authHeader=Authorization
+authValue=Bearer <token>
+sites=digitall
+```
+
+A user sees only the servers of the site open in jContent, and only on a site they have jContent access to. Uploading chat attachments to the DAM uses the first local server.
+
+### User preferences (gear icon in the chat)
 
 | Field | Description |
 |---|---|
-| **Endpoint URL** | URL of your Jahia MCP server, e.g. `http://localhost:8080/modules/mcp` |
-| **API Token** | Your Jahia personal API token (authenticates MCP tool calls) |
-
-### LLM Provider
-
-| Field | Description |
-|---|---|
-| **Provider** | Anthropic, OpenAI, or DeepSeek |
-| **Model** | Model for the selected provider (defaults to the recommended model) |
-| **API Key** | Your LLM provider API key (`sk-ant-…`, `sk-…`, or DeepSeek key) |
-| **Max output tokens** | Output token budget per LLM response (default: 4096, range: 256–32000) |
+| **Provider** | One of the providers with a key configured |
+| **Model** | Model for the selected provider |
+| **Max output tokens** | Output token budget per LLM response (capped by `MAX_TOKENS`) |
 
 **Settings are stored in JCR** under your user node — they persist across browser restarts and are tied to your Jahia account, not the browser. On panel open, settings are loaded from the server first; `localStorage` is kept as a fast-read cache.
 
@@ -173,7 +202,7 @@ The token budget per response is controlled by **Max output tokens** in settings
 
 | What | Where | Survives restart? |
 |---|---|---|
-| MCP endpoint, API keys, model, max tokens | JCR `{userNode}/mcp-chat-settings` | Yes — server-side, per user |
+| Provider, model, max tokens | JCR `{userNode}/mcp-chat-settings` | Yes - server-side, per user |
 | Chat history | `localStorage` | Yes — browser-local |
 | Skills | `localStorage` | Yes — browser-local |
 

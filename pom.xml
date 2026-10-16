@@ -64,6 +64,12 @@
             <version>1.4.0</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>org.osgi.service.metatype.annotations</artifactId>
+            <version>1.4.0</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <repositories>
@@ -93,6 +99,7 @@
                         <Bundle-SymbolicName>org.jahia.se.modules.jahiaMcpChat</Bundle-SymbolicName>
                         <Jahia-Depends>default</Jahia-Depends>
                         <_dsannotations>*</_dsannotations>
+                        <_metatypeannotations>*</_metatypeannotations>
                     </instructions>
                 </configuration>
             </plugin>

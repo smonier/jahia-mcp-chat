@@ -13,8 +13,8 @@ import {readFile} from './fileAttachments';
 export function McpChatDrawer({isOpen, onClose}) {
     const {t} = useTranslation('jahia-mcp-chat');
     const {settings, updateSettings, addSkill, removeSkill} = useSettings();
-    const {config, configLoaded} = useConfig();
     const siteKey = useSelector(state => state.site);
+    const {config, configLoaded} = useConfig(siteKey);
     const [mcpTools, setMcpTools] = useState([]);
     const [toolsLoading, setToolsLoading] = useState(false);
     const {messages, isStreaming, sendMessage, stopStreaming, clearMessages} = useMcpChat(settings, mcpTools, siteKey, config);
@@ -25,16 +25,19 @@ export function McpChatDrawer({isOpen, onClose}) {
     const textareaRef = useRef(null);
     const fileInputRef = useRef(null);
 
-    const mcpEndpoint = config.mcpEndpoint;
+    const mcpServers = config.mcpServers;
     const loadTools = useCallback(async () => {
-        if (!mcpEndpoint || !settings.mcpToken) return;
+        if (!mcpServers?.length) {
+            setMcpTools([]);
+            return;
+        }
         setToolsLoading(true);
-        const tools = await fetchMcpTools(mcpEndpoint, settings.mcpToken);
+        const tools = await fetchMcpTools(mcpServers, siteKey);
         setMcpTools(tools);
         setToolsLoading(false);
-    }, [mcpEndpoint, settings.mcpToken]);
+    }, [mcpServers, siteKey]);
 
-    // Fetch tool list whenever the drawer opens or MCP credentials change
+    // Fetch tool list whenever the drawer opens or the site's MCP servers change
     useEffect(() => {
         if (isOpen) loadTools();
     }, [isOpen, loadTools]);

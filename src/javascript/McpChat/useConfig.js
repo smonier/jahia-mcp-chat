@@ -9,24 +9,24 @@ const EMPTY_CONFIG = {
     defaultProvider: 'anthropic',
     defaultModel: 'claude-sonnet-4-6',
     maxTokens: 4096,
-    mcpEndpoint: 'http://localhost:8080/modules/mcp',
+    mcpServers: [],
     systemPromptAppendix: ''
 };
 
-export function useConfig() {
+export function useConfig(siteKey) {
     const [config, setConfig] = useState(EMPTY_CONFIG);
     const [configLoaded, setConfigLoaded] = useState(false);
 
     useEffect(() => {
         const path = '/modules/jahia-mcp-chat/config';
         getCsrfHeaders(path).then(csrfHdrs =>
-            fetch(CONFIG_API(), {credentials: 'same-origin', headers: csrfHdrs})
+            fetch(`${CONFIG_API()}?site=${encodeURIComponent(siteKey || '')}`, {credentials: 'same-origin', headers: csrfHdrs})
                 .then(r => { storeResponseToken(path, r); return r.ok ? r.json() : null; })
                 .then(data => { if (data) setConfig({...EMPTY_CONFIG, ...data}); })
                 .catch(() => {})
                 .finally(() => setConfigLoaded(true))
         );
-    }, []);
+    }, [siteKey]);
 
     return {config, configLoaded};
 }

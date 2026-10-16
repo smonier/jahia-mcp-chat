@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * OSGi-managed configuration for Jahia MCP Chat.
+ * OSGi-managed LLM configuration for Jahia MCP Chat (MCP servers: {@link McpServerRegistry}).
  * Edit digital-factory-data/karaf/etc/org.jahia.se.modules.mcpchat.cfg at runtime
  * — changes are picked up immediately via @Modified without redeployment.
  */
@@ -25,14 +25,6 @@ public class McpChatConfigService {
     @Modified
     protected void activate(Map<String, Object> properties) {
         this.config = Snapshot.from(properties);
-    }
-
-    public String getMcpEndpoint() {
-        return config.mcpEndpoint;
-    }
-
-    public String getMcpJwtToken() {
-        return config.mcpJwtToken;
     }
 
     public String getApiKeyForProvider(String provider) {
@@ -72,8 +64,6 @@ public class McpChatConfigService {
     // Immutable snapshot — a single volatile read gives a fully-consistent config view
     private static final class Snapshot {
 
-        final String mcpEndpoint;
-        final String mcpJwtToken;
         final String anthropicApiKey;
         final String openaiApiKey;
         final String deepseekApiKey;
@@ -82,11 +72,9 @@ public class McpChatConfigService {
         final int    maxTokens;
         final String systemPromptAppendix;
 
-        private Snapshot(String mcpEndpoint, String mcpJwtToken, String anthropicApiKey,
+        private Snapshot(String anthropicApiKey,
                          String openaiApiKey, String deepseekApiKey, String defaultProvider,
                          String defaultModel, int maxTokens, String systemPromptAppendix) {
-            this.mcpEndpoint          = mcpEndpoint;
-            this.mcpJwtToken          = mcpJwtToken;
             this.anthropicApiKey      = anthropicApiKey;
             this.openaiApiKey         = openaiApiKey;
             this.deepseekApiKey       = deepseekApiKey;
@@ -98,8 +86,6 @@ public class McpChatConfigService {
 
         static Snapshot defaults() {
             return new Snapshot(
-                "http://localhost:8080/modules/mcp",
-                "",
                 "", "", "",
                 "anthropic", "claude-sonnet-4-6",
                 4096, ""
@@ -108,8 +94,6 @@ public class McpChatConfigService {
 
         static Snapshot from(Map<String, Object> p) {
             return new Snapshot(
-                str(p, "MCP_ENDPOINT",            "http://localhost:8080/modules/mcp"),
-                str(p, "MCP_JWT_TOKEN",            ""),
                 str(p, "ANTHROPIC_API_KEY",        ""),
                 str(p, "OPENAI_API_KEY",           ""),
                 str(p, "DEEPSEEK_API_KEY",         ""),
