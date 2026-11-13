@@ -12,7 +12,7 @@
     <groupId>org.jahia.se.modules</groupId>
     <artifactId>jahia-mcp-chat</artifactId>
     <name>Jahia MCP Chat</name>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.1</version>
     <packaging>bundle</packaging>
     <description>jContent UI extension - LLM chat through the Jahia genai-connector, with the Jahia MCP tools and remote MCP servers.</description>
 

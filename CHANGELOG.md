@@ -4,6 +4,19 @@ All notable changes to Jahia MCP Chat. Format: [Keep a Changelog](https://keepac
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-13
+
+### Fixed
+
+- Answers the model wraps in a ```markdown fence, or indents by four spaces, rendered as one block of raw Markdown
+  (the indentation made it a code block). The fence is unwrapped, the indentation the lines share is removed, and
+  a fenced block marked `markdown` renders as Markdown.
+
+### Changed
+
+- Answers are a card across the drawer's width: headings with an accent rule, accent list markers, tables in their
+  own scroll box with a tinted header and striped rows, code in a monospace font, styled quotes and rules.
+
 ## [1.0.0] - 2026-11-13
 
 First release. A jContent chat drawer, docked beside the page under edit, that runs on genai-connector's agent
@@ -117,5 +130,6 @@ tools; genai-connector is optional.
 - Guests refused on every servlet; API keys and MCP credentials kept server-side; CORS and token exposure
   fixed; user-submitted MCP tokens never stored.
 
-[Unreleased]: https://github.com/smonier/jahia-mcp-chat/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/smonier/jahia-mcp-chat/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/smonier/jahia-mcp-chat/releases/tag/v1.0.1
 [1.0.0]: https://github.com/smonier/jahia-mcp-chat/releases/tag/v1.0.0

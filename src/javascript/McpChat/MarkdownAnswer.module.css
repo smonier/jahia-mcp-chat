@@ -1,0 +1,196 @@
+/* Rendered Markdown answers. jContent's tokens and Moonstone's type scale; the structure is the model's. */
+.markdown {
+    font-family: var(--moon-font-family, inherit);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--color-dark, #131c21);
+    overflow-wrap: anywhere;
+    min-width: 0;
+}
+
+.markdown > :first-child {
+    margin-top: 0;
+}
+
+.markdown > :last-child {
+    margin-bottom: 0;
+}
+
+.markdown p {
+    margin: 0 0 10px;
+}
+
+/* Headings: a clear hierarchy, the second level underlined in the accent colour */
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+    margin: 18px 0 8px;
+    line-height: 1.3;
+    font-weight: 600;
+    color: var(--color-dark, #131c21);
+}
+
+.markdown h1 {
+    font-size: 18px;
+}
+
+.markdown h2 {
+    font-size: 16px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid var(--color-accent_light, #99d9f4);
+}
+
+.markdown h3 {
+    font-size: 15px;
+    color: var(--color-accent_dark, #007cb0);
+}
+
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+    font-size: 14px;
+}
+
+.markdown strong {
+    font-weight: 600;
+}
+
+/* Lists: accent bullets and numbers, compact items */
+.markdown ul,
+.markdown ol {
+    margin: 0 0 10px;
+    padding-left: 22px;
+}
+
+.markdown li {
+    margin: 3px 0;
+}
+
+.markdown li::marker {
+    color: var(--color-accent, #00a0e3);
+    font-weight: 600;
+}
+
+.markdown li > ul,
+.markdown li > ol {
+    margin: 4px 0 0;
+}
+
+.markdown li > p {
+    margin: 0;
+}
+
+/* Task lists from GFM */
+.markdown li:has(> input[type='checkbox']) {
+    list-style: none;
+    margin-left: -18px;
+}
+
+.markdown input[type='checkbox'] {
+    margin: 0 6px 0 0;
+    vertical-align: middle;
+}
+
+/* Inline code and code blocks */
+.markdown code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--color-gray_light20, #eef1f4);
+    color: var(--color-accent_dark, #007cb0);
+}
+
+.markdown pre {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    border-radius: 6px;
+    background: var(--color-dark, #131c21);
+}
+
+.markdown pre code {
+    padding: 0;
+    background: none;
+    color: var(--color-light, #fff);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre;
+}
+
+/* Tables: their own scroll box, a tinted header, striped rows */
+.tableBox {
+    margin: 0 0 12px;
+    overflow-x: auto;
+    border: 1px solid var(--color-gray_light40, #dfe3e8);
+    border-radius: 6px;
+}
+
+.tableBox table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.tableBox th {
+    background: var(--color-gray_light20, #eef1f4);
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.tableBox th,
+.tableBox td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--color-gray_light40, #dfe3e8);
+    vertical-align: top;
+}
+
+.tableBox tbody tr:nth-child(even) td {
+    background: var(--color-gray_light10, #f7f8fa);
+}
+
+.tableBox tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.tableBox td code {
+    white-space: nowrap;
+}
+
+/* Quotes, rules, links, images */
+.markdown blockquote {
+    margin: 0 0 12px;
+    padding: 6px 12px;
+    border-left: 3px solid var(--color-accent, #00a0e3);
+    border-radius: 0 4px 4px 0;
+    background: var(--color-accent_light20, #e5f5fc);
+}
+
+.markdown blockquote > :last-child {
+    margin-bottom: 0;
+}
+
+.markdown hr {
+    margin: 14px 0;
+    border: none;
+    border-top: 1px solid var(--color-gray_light40, #dfe3e8);
+}
+
+.markdown a {
+    color: var(--color-accent, #00a0e3);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.markdown a:hover {
+    text-decoration: underline;
+}
+
+.markdown img {
+    max-width: 100%;
+    border-radius: 4px;
+}

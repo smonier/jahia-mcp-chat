@@ -1,8 +1,7 @@
 import React, {useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {Button, Chip, ChevronDown, ChevronUp, File, Image, Loader, Typography} from '@jahia/moonstone';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import {MarkdownAnswer} from './MarkdownAnswer';
 import styles from './ChatMessage.module.css';
 
 const PREVIEW = 160;
@@ -64,20 +63,6 @@ function ToolCallBlock({toolCall}) {
     );
 }
 
-// Answers are model output: Markdown rendered as React elements, raw HTML ignored (react-markdown's default),
-// unsafe link protocols dropped by its URL transform, links opened in a new tab
-const MARKDOWN_COMPONENTS = {
-    a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer"/>
-};
-
-function Markdown({text}) {
-    return (
-        <div className={styles.markdown}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{text}</ReactMarkdown>
-        </div>
-    );
-}
-
 function TokenBadge({usage}) {
     const {t} = useTranslation('jahia-mcp-chat');
     if (!usage) return null;
@@ -102,11 +87,9 @@ export function ChatMessage({message}) {
                     <ToolCallBlock key={tc.id || tc.name} toolCall={tc}/>
                 ))}
                 {message.content && (
-                    <div className={styles.bubble}>
-                        {isUser
-                            ? <Typography className={styles.text}>{message.content}</Typography>
-                            : <Markdown text={message.content}/>}
-                    </div>
+                    isUser
+                        ? <div className={styles.bubble}><Typography className={styles.text}>{message.content}</Typography></div>
+                        : <div className={styles.answer}><MarkdownAnswer text={message.content}/></div>
                 )}
                 {message.attachments?.length > 0 && (
                     <div className={styles.attachments}>

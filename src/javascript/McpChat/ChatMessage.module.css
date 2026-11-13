@@ -95,84 +95,17 @@
     color: var(--color-gray_dark, #293136);
 }
 
-/* Markdown answers: Moonstone's body text, the browser's block structure, wrapped */
-.markdown {
-    font-family: var(--moon-font-family, inherit);
-    font-size: 14px;
-    line-height: 1.5;
-    color: var(--color-dark, #131c21);
-    overflow-wrap: anywhere;
-    min-width: 0;
+/* An answer takes the drawer's width: tables and lists need it */
+.assistant .content {
+    max-width: 100%;
+    width: 100%;
 }
 
-.markdown > :first-child {
-    margin-top: 0;
-}
-
-.markdown > :last-child {
-    margin-bottom: 0;
-}
-
-.markdown p,
-.markdown ul,
-.markdown ol,
-.markdown pre,
-.markdown table,
-.markdown blockquote {
-    margin: 0 0 var(--moon-spacing-small, 8px);
-}
-
-.markdown ul,
-.markdown ol {
-    padding-left: var(--moon-spacing-large, 20px);
-}
-
-.markdown h1,
-.markdown h2,
-.markdown h3,
-.markdown h4 {
-    margin: var(--moon-spacing-small, 8px) 0;
-    font-size: 15px;
-    font-weight: 600;
-}
-
-.markdown code {
-    font-size: 12px;
-    padding: 0 2px;
-    background: var(--color-gray_light40, #dfe3e8);
-    border-radius: 2px;
-}
-
-.markdown pre {
-    overflow-x: auto;
-    padding: var(--moon-spacing-small, 8px);
-    background: var(--color-gray_light40, #dfe3e8);
-    border-radius: 4px;
-}
-
-.markdown pre code {
-    padding: 0;
-    background: none;
-}
-
-.markdown table {
-    display: block;
-    overflow-x: auto;
-    border-collapse: collapse;
-}
-
-.markdown th,
-.markdown td {
-    padding: 4px 8px;
+.answer {
+    padding: 12px 14px;
     border: 1px solid var(--color-gray_light40, #dfe3e8);
-    text-align: left;
-}
-
-.markdown a {
-    color: var(--color-accent, #00a0e3);
-}
-
-.markdown blockquote {
-    padding-left: var(--moon-spacing-small, 8px);
-    border-left: 3px solid var(--color-gray_light40, #dfe3e8);
+    border-left: 3px solid var(--color-accent, #00a0e3);
+    border-radius: 6px;
+    background: var(--color-light, #fff);
+    min-width: 0;
 }
