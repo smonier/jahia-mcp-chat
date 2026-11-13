@@ -4,8 +4,12 @@ All notable changes to Jahia MCP Chat. Format: [Keep a Changelog](https://keepac
 
 ## [Unreleased]
 
-The chat runs on genai-connector, like automatic-content-tags 2.0: the module no longer holds LLM keys or talks
-to LLM providers. Breaking for any instance that ran a development build.
+## [1.0.0] - 2026-11-13
+
+First release. A jContent chat drawer, docked beside the page under edit, that runs on genai-connector's agent
+with the Jahia MCP tools and the tools of any remote MCP server configured for the site. The module holds no LLM
+key and talks to no LLM provider itself. Requires Jahia 8.2, mcp-server 0.5+ and genai-connector with a model
+tier able to run the agent. Breaking for any instance that ran an October development build (see below).
 
 ### Changed
 
@@ -45,7 +49,7 @@ to LLM providers. Breaking for any instance that ran a development build.
 - The `allowedTools` workaround for tool schemas with `$ref`, fixed in genai-connector (Jahia/genai-connector#12).
 - The unused `McpChatPanel` and `ModelSelector` components.
 
-## [1.0.0] - 2026-10-16
+## Development builds before 1.0.0 (October 2026, never released)
 
 First release: a jContent chat drawer driving Jahia and other MCP servers with the LLM of your choice.
 

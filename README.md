@@ -79,11 +79,11 @@ cd jahia-mcp-chat
 JAVA_HOME=/path/to/java17 mvn clean install
 ```
 
-Deploy `target/jahia-mcp-chat-1.0.0-SNAPSHOT.jar` from the module administration, or:
+Deploy `target/jahia-mcp-chat-<version>.jar` from the module administration, or:
 
 ```bash
 curl -u root:<password> -X POST http://localhost:8080/modules/api/bundles \
-  -F "bundle=@target/jahia-mcp-chat-1.0.0-SNAPSHOT.jar" -F "start=true"
+  -F "bundle=@target/jahia-mcp-chat-<version>.jar" -F "start=true"
 ```
 
 Then give genai-connector a model: `karaf/etc/org.jahia.modules.genai.cfg` (`provider`, `api.key`, `model`, and
@@ -275,7 +275,7 @@ jahia-mcp-chat/
 ```bash
 JAVA_HOME=/path/to/java17 mvn clean install
 curl -u root:<password> -X POST http://localhost:8080/modules/api/bundles \
-  -F "bundle=@target/jahia-mcp-chat-1.0.0-SNAPSHOT.jar" -F "start=true"
+  -F "bundle=@target/jahia-mcp-chat-<version>.jar" -F "start=true"
 ```
 
 Never run `yarn dev` from an automated process: it is an interactive watcher. See [CHANGELOG.md](CHANGELOG.md)
