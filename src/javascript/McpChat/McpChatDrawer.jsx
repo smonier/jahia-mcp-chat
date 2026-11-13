@@ -18,7 +18,7 @@ export function McpChatDrawer({onClose}) {
     const {settings, updateSettings, addSkill, removeSkill} = useSettings();
     const siteKey = useSelector(state => state.site);
     const {config, genai, configLoaded, reloadConfig} = useConfig(siteKey);
-    const {messages, isStreaming, sendMessage, stopStreaming, clearMessages, pendingApproval, answerApproval} = useMcpChat(settings, siteKey, config, genai);
+    const {messages, isStreaming, sendMessage, stopStreaming, clearMessages, pendingApproval, answerApproval, continueTask} = useMcpChat(settings, siteKey, config, genai);
     const [input, setInput] = useState('');
     const [attachments, setAttachments] = useState([]);
     const [tab, setTab] = useState('chat');
@@ -34,6 +34,10 @@ export function McpChatDrawer({onClose}) {
     const tier = resolveTier(settings, config, genai);
     const ready = Boolean(genai) && Boolean(tier);
     const tierInfo = genai?.tiers?.[tier];
+    // Why the last answer ended before the task did, when it did: the chat then offers to continue
+    const last = messages[messages.length - 1];
+    const lastStop = last?.role === 'assistant' && ['MAX_ITERATIONS', 'TOKEN_BUDGET', 'ERROR', 'USER'].includes(last.stopped)
+        ? last.stopped : null;
 
     // Take focus on open and give it back on close: a portal has no place in the page's focus order
     useEffect(() => {
@@ -159,6 +163,19 @@ export function McpChatDrawer({onClose}) {
                     {messages.map((msg, i) => (
                         <ChatMessage key={i} message={msg}/>
                     ))}
+                    {lastStop && !isStreaming && (
+                        <div className={styles.notice} role="status">
+                            <Banner variant={lastStop === 'ERROR' ? 'danger' : 'info'} title={t(`stopped.${lastStop}.title`)}>
+                                <div className={styles.approvalBody}>
+                                    <Typography>{t(`stopped.${lastStop}.text`)}</Typography>
+                                    <div className={styles.approvalActions}>
+                                        <Button color="accent" label={t('stopped.continue')} isDisabled={!ready}
+                                                onClick={() => continueTask(t('stopped.continue'))}/>
+                                    </div>
+                                </div>
+                            </Banner>
+                        </div>
+                    )}
                     <div ref={messagesEndRef}/>
                 </div>
 

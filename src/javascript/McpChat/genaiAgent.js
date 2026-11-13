@@ -49,7 +49,10 @@ export async function storeAttachment(att, bytes) {
     return (await res.json()).id;
 }
 
-// Yields {type: text | tool_start | tool_result | approval_required | usage}
+// Yields {type: text | tool_start | tool_result | approval_required | usage | done}
+// The connector stops a run after 8 tool rounds unless told otherwise (50 at most)
+export const MAX_TOOL_ITERATIONS = 30;
+
 export async function* runAgent({input, images, history, tier, instructions, maxTokens, locale, allowedTools, signal}) {
     const res = await fetch(`${ctx()}/modules/genai/agent/stream`, {
         method: 'POST', credentials: 'same-origin', headers: HEADERS, signal,
@@ -58,6 +61,7 @@ export async function* runAgent({input, images, history, tier, instructions, max
             tier,
             instructions,
             history,
+            maxToolIterations: MAX_TOOL_ITERATIONS,
             ...(images?.length ? {images} : {}),
             ...(maxTokens ? {maxOutputTokens: maxTokens} : {}),
             ...(locale ? {locale} : {}),
@@ -89,8 +93,10 @@ export async function* runAgent({input, images, history, tier, instructions, max
         if (name === 'tool_result') {
             yield {type: 'tool_result', id: d.callId, result: d.ok ? (d.resultPreview || '') : {error: d.resultPreview || 'Tool failed'}};
         }
-        if (name === 'complete' && d.usage) {
-            yield {type: 'usage', input: d.usage.inputTokens || 0, output: d.usage.outputTokens || 0};
+        if (name === 'complete') {
+            if (d.usage) yield {type: 'usage', input: d.usage.inputTokens || 0, output: d.usage.outputTokens || 0};
+            // COMPLETED, or a limit that cut the run short: MAX_ITERATIONS, TOKEN_BUDGET
+            yield {type: 'done', stop: d.stop || 'COMPLETED'};
         }
         if (name === 'error') throw new Error(d.error || 'error');
     };

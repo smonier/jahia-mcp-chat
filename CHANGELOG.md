@@ -4,6 +4,24 @@ All notable changes to Jahia MCP Chat. Format: [Keep a Changelog](https://keepac
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-11-13
+
+### Fixed
+
+- The assistant stopped in the middle of a task without saying why. A run on genai-connector ends after 8 tool
+  rounds by default, and the chat showed nothing. The chat now asks for 30 rounds, continues by itself (up to three
+  times) when a run still hits that limit, and when a run stops for another reason (the administrator's token
+  budget, an error, the user's Stop) it says why and offers **Continue**.
+- Long answers were cut at the connector's default of 1,024 output tokens per model call: the chat asks for 4,096
+  unless the user or `MAX_TOKENS` says otherwise.
+- The assistant forgot what its tools had returned from one message to the next: the history now carries a summary
+  of each turn's tool calls and results.
+
+### Changed
+
+- The assistant's instructions: never end a turn on a plan or a statement of intent; either call the tool, or end
+  with one explicit question and what it will do once answered. A failed tool call is corrected once, then reported.
+
 ## [1.0.2] - 2026-11-13
 
 ### Added
@@ -145,7 +163,8 @@ tools; genai-connector is optional.
 - Guests refused on every servlet; API keys and MCP credentials kept server-side; CORS and token exposure
   fixed; user-submitted MCP tokens never stored.
 
-[Unreleased]: https://github.com/smonier/jahia-mcp-chat/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/smonier/jahia-mcp-chat/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/smonier/jahia-mcp-chat/releases/tag/v1.0.3
 [1.0.2]: https://github.com/smonier/jahia-mcp-chat/releases/tag/v1.0.2
 [1.0.1]: https://github.com/smonier/jahia-mcp-chat/releases/tag/v1.0.1
 [1.0.0]: https://github.com/smonier/jahia-mcp-chat/releases/tag/v1.0.0

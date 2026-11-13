@@ -16,7 +16,10 @@
   is not installed.
 - `useMcpChat.js` owns a conversation: text attachments inline, images as `images` (JPEG, PNG, GIF, WebP), every
   image or binary file posted to `/attachments` and named in the message with its `attachmentId`; history as
-  text turns (last 20, older ones cut to 400 characters); `allowedTools` = the connector's tools minus
+  text turns (last 20, older ones cut to 400 characters); each turn's tool calls and results summarised in the history (`toolSummary`), so the model remembers them;
+  `maxToolIterations` 30 and 4,096 output tokens by default; a run ended by `MAX_ITERATIONS` is continued
+  automatically (3 times at most), any other early stop sets `stopped` on the message and the drawer offers
+  **Continue**; `allowedTools` = the connector's tools minus
   `config.blockedTools` (remote servers not allowed on the site); `resolveTier()` = user's tier, else
   `DEFAULT_TIER`, else the first tier with `agentAvailable`.
 - `genaiAgent.js`: `fetchGenAiStatus()`, `runAgent()` (SSE frames `start`, `partial`, `tool_call`,

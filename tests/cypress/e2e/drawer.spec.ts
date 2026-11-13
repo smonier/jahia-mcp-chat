@@ -181,6 +181,73 @@ describe('jahia-mcp-chat - drawer', () => {
         cy.get(ANSWER).should('contain.text', 'The change was declined.');
     });
 
+    // The connector ends a run at its tool-round limit without finishing the task: the chat goes on by itself
+    it('continues by itself when a run hits the tool-round limit, and remembers what the tools did', () => {
+        stubConnector();
+        const bodies: Array<Record<string, any>> = [];
+        cy.intercept('POST', '**/modules/genai/agent/stream', req => {
+            bodies.push(req.body);
+            const first = bodies.length === 1;
+            req.reply({
+                statusCode: 200,
+                headers: {'content-type': 'text/event-stream'},
+                body: sse(first ? [
+                    ['start', {streamId: 'r1'}],
+                    ['tool_call', {callId: 'k1', tool: 'page.list', safety: 'READ_ONLY', requiresApproval: false, argumentsJson: '{"siteKey":"mc-drawer"}'}],
+                    ['tool_result', {callId: 'k1', tool: 'page.list', safety: 'READ_ONLY', ok: true, durationMs: 5, resultPreview: '{"count":7}'}],
+                    ['complete', {text: '', stop: 'MAX_ITERATIONS', usage: {inputTokens: 100, outputTokens: 10}}]
+                ] : [
+                    ['start', {streamId: 'r2'}],
+                    ['partial', {text: 'All seven pages are checked.'}],
+                    ['complete', {text: '', stop: 'COMPLETED', usage: {inputTokens: 50, outputTokens: 8}}]
+                ])
+            });
+        }).as('run');
+        open();
+        send('Check every page');
+        cy.get(ANSWER).should('contain.text', 'All seven pages are checked.');
+        cy.wrap(bodies).should(sent => {
+            expect(sent, 'two runs, the second started by the chat').to.have.length(2);
+            expect(sent[0].maxToolIterations, 'more tool rounds than the connector\'s 8').to.be.greaterThan(8);
+            expect(sent[0].maxOutputTokens, 'room for a long answer').to.be.greaterThan(1024);
+            expect(sent[1].input).to.match(/^Continue the task/);
+            const history = JSON.stringify(sent[1].history);
+            expect(history, 'the request is kept').to.contain('Check every page');
+            expect(history, 'and what the tools returned').to.contain('page.list').and.to.contain('count');
+        });
+        cy.get(`${DRAWER} [role="status"]`).should('not.exist');
+        cy.get(DRAWER).should('contain.text', '150 in, 18 out');
+    });
+
+    // A token budget is the operator's limit: the chat does not go past it by itself, it says so and offers to go on
+    it('says why a run stopped at the token budget and continues on request', () => {
+        stubConnector();
+        let runs = 0;
+        cy.intercept('POST', '**/modules/genai/agent/stream', req => {
+            runs += 1;
+            req.reply({
+                statusCode: 200,
+                headers: {'content-type': 'text/event-stream'},
+                body: sse(runs === 1 ? [
+                    ['start', {streamId: 'b1'}],
+                    ['partial', {text: 'Half of the pages are done.'}],
+                    ['complete', {text: '', stop: 'TOKEN_BUDGET', usage: {inputTokens: 900, outputTokens: 90}}]
+                ] : [
+                    ['start', {streamId: 'b2'}],
+                    ['partial', {text: 'The other half is done too.'}],
+                    ['complete', {text: '', stop: 'COMPLETED', usage: {inputTokens: 40, outputTokens: 9}}]
+                ])
+            });
+        });
+        open();
+        send('Update every page');
+        cy.get(`${DRAWER} [role="status"]`).should('be.visible').and('contain.text', 'token budget');
+        cy.wrap(null).should(() => expect(runs, 'no run started by the chat past the budget').to.eq(1));
+        cy.get(`${DRAWER} [role="status"]`).contains('button', 'Continue').click();
+        cy.get(ANSWER).last().should('contain.text', 'The other half is done too.');
+        cy.get(`${DRAWER} [role="status"]`).should('not.exist');
+    });
+
     it('meets WCAG 2.1 AA in the chat and in Settings', () => {
         stubConnector([
             ['start', {streamId: 's3'}],

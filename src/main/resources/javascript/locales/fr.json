@@ -77,6 +77,25 @@
         "tokens": {
             "summary": "{{input}} en entrée, {{output}} en sortie, {{total}} tokens",
             "detail": "{{input}} tokens en entrée et {{output}} en sortie"
+        },
+        "stopped": {
+            "continue": "Continuer",
+            "MAX_ITERATIONS": {
+                "title": "L'assistant s'est mis en pause",
+                "text": "La tâche demandait plus d'étapes qu'une exécution n'en permet. Il peut reprendre là où il s'est arrêté."
+            },
+            "TOKEN_BUDGET": {
+                "title": "L'assistant s'est mis en pause",
+                "text": "Cette exécution a atteint le budget de tokens fixé par l'administrateur. Il peut reprendre là où il s'est arrêté dans une nouvelle exécution."
+            },
+            "ERROR": {
+                "title": "L'exécution a été interrompue",
+                "text": "Une erreur a arrêté l'assistant avant la fin de la tâche (voir ci-dessus). Il peut réessayer là où il s'est arrêté."
+            },
+            "USER": {
+                "title": "Arrêté",
+                "text": "Vous avez arrêté l'assistant. Il peut reprendre là où il s'est arrêté."
+            }
         }
     }
 }

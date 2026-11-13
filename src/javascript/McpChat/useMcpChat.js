@@ -4,6 +4,12 @@ import {availableTiers, confirmToolCall, IMAGE_TYPES, runAgent, storeAttachment}
 const HISTORY_KEY = 'jahia-mcp-chat:history';
 const MAX_STORED_MESSAGES = 100;
 const HISTORY_TURNS = 20;
+// Output tokens per model call when neither the user nor the operator set one (the connector's own default, 1024,
+// cuts long answers)
+const DEFAULT_MAX_TOKENS = 4096;
+// A run that hits the connector's tool-round limit is continued without asking, this many times
+const MAX_AUTO_CONTINUES = 3;
+const CONTINUE_INPUT = 'Continue the task from where you stopped. Do not repeat the steps already done; finish what is left.';
 
 function loadHistory() {
     try {
@@ -54,6 +60,8 @@ ${site}## When to use tools
 
 ## Behavior
 - Chain tool calls until the task is done.
+- Never end your turn on a plan or a statement of intent ("I will now...", "Next, I'll..."). Either call the tool in this turn, or, when you need a decision or a missing piece of information, end with ONE explicit question to the user and say what you will do once they answer.
+- When a tool fails, try to correct the call once; if it still fails, say what failed and ask the user how to proceed.
 - Before creating content, check the content types and templates the site offers; never invent type names. To create a page, list the templates, create the page, then use the structure it returns to place content.
 - A file the user attached comes with an attachment id: to put it in the media library, call \`chat.upload_attachment\` with that id and the site key, and use the returned path in image or file fields. Upload each image before creating the content that uses it.
 - Summarize results in plain language, never raw JSON. Ask once before deleting or unpublishing.${services}${skillsText}${appendix ? '\n\n## Client-specific instructions\n\n' + appendix : ''}`;
@@ -85,14 +93,27 @@ async function prepareAttachments(text, attachments) {
     return {input: [text, ...notes].filter(Boolean).join('\n\n'), images};
 }
 
+// What the tools did in a turn, so that the model remembers it on the next message (history is text only)
+function toolSummary(toolCalls, previewLength) {
+    if (!toolCalls?.length) return '';
+    return '\n[Tools already run in this turn:\n' + toolCalls.map(tc => {
+        const args = JSON.stringify(tc.input || {});
+        const result = tc.result === undefined ? 'no result'
+            : tc.result?.error ? `FAILED: ${String(tc.result.error).slice(0, previewLength)}`
+                : `ok: ${String(typeof tc.result === 'string' ? tc.result : JSON.stringify(tc.result)).slice(0, previewLength)}`;
+        return `- ${tc.name} ${args.length > 300 ? args.slice(0, 300) + '...' : args} -> ${result}`;
+    }).join('\n') + ']';
+}
+
 function historyTurns(messages) {
     return messages.slice(-HISTORY_TURNS).map((m, i, arr) => {
+        const recent = i >= arr.length - 4;
         let text = typeof m.content === 'string' ? m.content : '';
+        if (!recent && text.length > 400) text = text.slice(0, 400) + ' [truncated]';
         if (m.attachments?.length) {
             text += '\n' + m.attachments.map(a => `[Attached file "${a.name}"]`).join(' ');
         }
-        const recent = i >= arr.length - 4;
-        if (!recent && text.length > 400) text = text.slice(0, 400) + ' [truncated]';
+        text += toolSummary(m.toolCalls, recent ? 600 : 150);
         return {role: m.role, text};
     }).filter(t => t.text.trim());
 }
@@ -132,7 +153,7 @@ export function useMcpChat(settings, siteKey, config = {}, genai = null) {
         const tier = resolveTier(settings, config, genai);
         const ceiling = config.maxTokens || 0;
         const asked = settings.maxTokens || 0;
-        const maxTokens = ceiling && asked ? Math.min(ceiling, asked) : (asked || ceiling || undefined);
+        const maxTokens = ceiling && asked ? Math.min(ceiling, asked) : (asked || ceiling || DEFAULT_MAX_TOKENS);
         const blocked = new Set(config.blockedTools || []);
         const allowedTools = blocked.size > 0 && genai?.tools
             ? genai.tools.map(t => t.name).filter(n => !blocked.has(n))
@@ -143,44 +164,73 @@ export function useMcpChat(settings, siteKey, config = {}, genai = null) {
         let usageInput = 0;
         let usageOutput = 0;
 
+        // Why the turn ended when it did not end by itself: MAX_ITERATIONS, TOKEN_BUDGET, ERROR
+        let stopped = null;
         try {
             if (!tier) throw new Error('genai-connector has no model tier able to run the agent.');
-            const {input, images} = await prepareAttachments(text, attachments);
-            const stream = runAgent({
-                input,
-                images,
-                history: historyTurns(previous),
-                tier,
-                instructions: buildInstructions(config.mcpServers || [], settings.skills || [], siteKey, config.systemPromptAppendix || ''),
-                maxTokens,
-                locale: (document.documentElement.lang || '').replace('_', '-') || undefined,
-                allowedTools,
-                signal: controller.signal
-            });
+            const first = await prepareAttachments(text, attachments);
+            let input = first.input;
+            let images = first.images;
+            let history = historyTurns(previous);
+            const instructions = buildInstructions(config.mcpServers || [], settings.skills || [], siteKey, config.systemPromptAppendix || '');
 
-            for await (const event of stream) {
-                if (controller.signal.aborted) break;
-                if (event.type === 'text') {
-                    assistantText += event.content;
-                } else if (event.type === 'tool_start') {
-                    toolCalls.push({name: event.name, input: event.input, id: event.id});
-                } else if (event.type === 'tool_result') {
-                    const tc = toolCalls.find(t => t.id === event.id) || toolCalls[toolCalls.length - 1];
-                    if (tc) tc.result = event.result;
-                } else if (event.type === 'approval_required') {
-                    setPendingApproval({streamId: event.streamId, callId: event.callId, name: event.name, argumentsJson: event.argumentsJson});
-                } else if (event.type === 'usage') {
-                    usageInput += event.input;
-                    usageOutput += event.output;
+            for (let round = 0; round <= MAX_AUTO_CONTINUES && !controller.signal.aborted; round++) {
+                let stop = 'COMPLETED';
+                const stream = runAgent({
+                    input,
+                    images,
+                    history,
+                    tier,
+                    instructions,
+                    maxTokens,
+                    locale: (document.documentElement.lang || '').replace('_', '-') || undefined,
+                    allowedTools,
+                    signal: controller.signal
+                });
+
+                for await (const event of stream) {
+                    if (controller.signal.aborted) break;
+                    if (event.type === 'text') {
+                        assistantText += event.content;
+                    } else if (event.type === 'tool_start') {
+                        toolCalls.push({name: event.name, input: event.input, id: event.id});
+                    } else if (event.type === 'tool_result') {
+                        const tc = toolCalls.find(t => t.id === event.id) || toolCalls[toolCalls.length - 1];
+                        if (tc) tc.result = event.result;
+                    } else if (event.type === 'approval_required') {
+                        setPendingApproval({streamId: event.streamId, callId: event.callId, name: event.name, argumentsJson: event.argumentsJson});
+                    } else if (event.type === 'usage') {
+                        usageInput += event.input;
+                        usageOutput += event.output;
+                    } else if (event.type === 'done') {
+                        stop = event.stop;
+                    }
+                    setMessages(prev => [
+                        ...prev.slice(0, -1),
+                        {role: 'assistant', content: assistantText, streaming: true, toolCalls: toolCalls.length > 0 ? [...toolCalls] : undefined}
+                    ]);
                 }
-                setMessages(prev => [
-                    ...prev.slice(0, -1),
-                    {role: 'assistant', content: assistantText, streaming: true, toolCalls: toolCalls.length > 0 ? [...toolCalls] : undefined}
-                ]);
+
+                if (stop === 'COMPLETED' || controller.signal.aborted) break;
+                // The tool-round limit cut the run: go on with what was done so far, without asking. A token budget
+                // is the operator's limit: stop there and let the user decide.
+                if (stop !== 'MAX_ITERATIONS' || round === MAX_AUTO_CONTINUES) {
+                    stopped = stop;
+                    break;
+                }
+                history = [
+                    ...historyTurns(previous),
+                    {role: 'user', text: input},
+                    {role: 'assistant', text: (assistantText || '(working)') + toolSummary(toolCalls, 600)}
+                ];
+                input = CONTINUE_INPUT;
+                images = [];
+                if (assistantText && !assistantText.endsWith('\n')) assistantText += '\n\n';
             }
         } catch (err) {
             if (!controller.signal.aborted) {
-                assistantText = `Error: ${err.message}`;
+                assistantText += `${assistantText ? '\n\n' : ''}Error: ${err.message}`;
+                stopped = 'ERROR';
             }
         }
 
@@ -188,7 +238,9 @@ export function useMcpChat(settings, siteKey, config = {}, genai = null) {
         setMessages(prev => {
             const updated = [
                 ...prev.slice(0, -1),
-                {role: 'assistant', content: assistantText || '(stopped)', toolCalls: toolCalls.length > 0 ? [...toolCalls] : undefined, usage}
+                {role: 'assistant', content: assistantText || (toolCalls.length > 0 ? '' : '(stopped)'),
+                    toolCalls: toolCalls.length > 0 ? [...toolCalls] : undefined, usage,
+                    stopped: stopped || (controller.signal.aborted ? 'USER' : undefined)}
             ];
             saveHistory(updated);
             return updated;
@@ -210,5 +262,8 @@ export function useMcpChat(settings, siteKey, config = {}, genai = null) {
         localStorage.removeItem(HISTORY_KEY);
     }, []);
 
-    return {messages, isStreaming, sendMessage, stopStreaming, clearMessages, pendingApproval, answerApproval};
+    // The label is what the user sees as their message; the tool summary in the history tells the model where it was
+    const continueTask = useCallback(label => sendMessage(label || CONTINUE_INPUT), [sendMessage]);
+
+    return {messages, isStreaming, sendMessage, stopStreaming, clearMessages, pendingApproval, answerApproval, continueTask};
 }

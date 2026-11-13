@@ -77,6 +77,25 @@
         "tokens": {
             "summary": "{{input}} in, {{output}} out, {{total}} tokens",
             "detail": "{{input}} input and {{output}} output tokens"
+        },
+        "stopped": {
+            "continue": "Continue",
+            "MAX_ITERATIONS": {
+                "title": "The assistant paused",
+                "text": "The task needed more steps than one run allows. It can pick up where it stopped."
+            },
+            "TOKEN_BUDGET": {
+                "title": "The assistant paused",
+                "text": "This run reached the token budget set by the administrator. It can pick up where it stopped in a new run."
+            },
+            "ERROR": {
+                "title": "The run was interrupted",
+                "text": "An error stopped the assistant before the task was finished (see above). It can try again from where it stopped."
+            },
+            "USER": {
+                "title": "Stopped",
+                "text": "You stopped the assistant. It can pick up where it stopped."
+            }
         }
     }
 }

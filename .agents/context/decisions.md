@@ -1,5 +1,13 @@
 # Decisions
 
+## 2026-11-13 - The assistant acts or asks, and the chat re-engages
+
+User rule: the assistant never just stops. A run that hits the connector's tool-round limit (`MAX_ITERATIONS`,
+8 by default, the chat asks for 30) is continued by the chat itself, up to three times, with the request and a
+summary of the tools already run in the history. A run that stops on the operator's token budget, an error or the
+user's Stop shows why and a **Continue** button: the chat does not spend past a budget by itself. The instructions
+tell the model to call the tool or ask one explicit question, never to end on a plan.
+
 ## 2026-11-13 - Everything on genai-connector, remote servers bridged
 
 The chat runs only on genai-connector's streamed agent, like automatic-content-tags 2.0: no LLM key, no provider
