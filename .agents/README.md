@@ -12,6 +12,7 @@ track and do not apply.
 |---|---|
 | [context/architecture.md](context/architecture.md) | Before any change: components, endpoints, MCP servers, sign-in flow, where data lives |
 | [context/decisions.md](context/decisions.md) | Before changing configuration, security or storage: what was decided and why |
+| [../docs/mcp-servers.md](../docs/mcp-servers.md) | To add, change or debug an MCP server (factory configuration, settings, auth, checks) |
 | [skills/build-deploy/SKILL.md](skills/build-deploy/SKILL.md) | To build, deploy and check the module on a local Jahia |
 
 Every change updates `CHANGELOG.md` (Unreleased) and the README in the same commit.

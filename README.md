@@ -109,90 +109,25 @@ It can also be edited from **Administration > Server > Configuration > OSGi conf
 The provider keys of 1.0.0 development builds (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`,
 `DEFAULT_PROVIDER`, `DEFAULT_MODEL`) are no longer read; the log names any left in the file.
 
-### MCP servers - one `org.jahia.se.modules.mcpchat.server-<name>.cfg` per server
+### MCP servers - a factory configuration, one instance per server
 
-| Key | Description |
-|---|---|
-| `name` | Lowercase letters, digits, `-`, single `_`. A remote server's tools are named `<name>.<tool>`. Defaults to the file suffix |
-| `label` | Name shown to users. Defaults to the name |
-| `url` | Relative (`/modules/mcp`): this Jahia's MCP server, whose tools the agent runs in-process. Absolute (`https://...`): a remote server, bridged by the module |
-| `authHeader`, `authValue` | A fixed credential sent to a remote server (e.g. `Authorization` / `Bearer <token>`) |
-| `oauthGrant` | For a remote server that requires OAuth. `authorization_code` (default): each user signs in. `client_credentials`: one account for every user |
-| `oauthClientId`, `oauthClientSecret` | Optional for `authorization_code` (the module registers itself when empty); required for `client_credentials` |
-| `oauthScope` | Scopes to request. Empty: the scopes the server advertises |
-| `oauthTokenUrl` | Token endpoint for `client_credentials`. Empty: discovered from the server's metadata |
-| `timeoutMs` | Remote request timeout (default 60000) |
-| `sites` | Comma-separated site keys whose chat may use the server; empty means every site |
-| `enabled` | `false` hides the server |
-
-The module ships `server-jahia.cfg`, which only names the Jahia server in the settings.
-
-#### How remote tools reach the agent
-
-genai-connector's agent runs the tools registered as `JahiaMcpTool` services. For each remote server, the module
-reads the server's tool list and registers one such service per tool. A call runs with the server's credential:
-
-| Server | Tool list read | Call made with |
-|---|---|---|
-| `authValue` set | every 30 minutes | the fixed header |
-| `oauthGrant=client_credentials` | every 30 minutes | one token for every user |
-| otherwise (per-user sign-in) | when a signed-in user opens the chat, at most hourly, and right after a sign-in | the calling user's own token; a user who has not signed in gets "sign in first" |
-
-The last list is kept in the bundle's data folder (`remote-tools.json`), so the tools are back after a restart.
-`sites` is enforced by the chat (it tells the agent which tools it may use on the site). These services are also
-listed by the Jahia MCP server at `/modules/mcp`, so other MCP clients of the instance see them too, each call
-still made with that user's own sign-in.
-
-#### A remote server with OAuth sign-in (BotRank)
-
-An `mcpServers` entry such as `"botrank": {"type": "http", "url": "https://api.botrank.ai/mcp/public"}`
-becomes:
-
-```properties
-# karaf/etc/org.jahia.se.modules.mcpchat.server-botrank.cfg
-name=botrank
-label=BotRank
-url=https://api.botrank.ai/mcp/public
-```
-
-The chat settings show BotRank as **Not connected** with a **Connect** button, and:
-
-1. The module reads the server's OAuth metadata (`/.well-known/oauth-protected-resource`, then the
-   authorization server's metadata).
-2. It registers itself as "Jahia MCP Chat" (dynamic client registration, once per server and redirect URI,
-   kept in the bundle's data folder).
-3. The sign-in page opens in a popup (authorization code with PKCE); the user signs in with their own account.
-4. The server sends the browser back to `/modules/jahia-mcp-chat/oauth/callback`; the module exchanges the
-   code, keeps the tokens for that user and reads the server's tools. The settings show **Connected**.
-
-Self-registration depends on the server's policy. BotRank's sign-in service (Keycloak, "Trusted Hosts")
-accepts `localhost` redirect URIs and refuses other domains with a 403, so on Jahia Cloud or any public host
-either BotRank trusts that host, or BotRank registers a client for
-`<PUBLIC_BASE_URL>/modules/jahia-mcp-chat/oauth/callback` and you set its `oauthClientId` in `server-botrank.cfg`.
-The chat shows the server's reason when a registration is refused.
-
-#### A remote server with a fixed credential
-
-```properties
-# karaf/etc/org.jahia.se.modules.mcpchat.server-crm.cfg
-name=crm
-label=CRM
-url=https://mcp.example.com/mcp
-authHeader=Authorization
-authValue=Bearer <token>
-sites=digitall
-```
-
-#### A remote server with one account for all users
+Each MCP server is one instance of the OSGi factory configuration `org.jahia.se.modules.mcpchat.server`
+("Jahia MCP Chat - MCP server" in `/tools/osgi/console/configMgr`, **+** to add one), stored as
+`karaf/etc/org.jahia.se.modules.mcpchat.server-<name>.cfg`. Adding, editing or deleting an instance applies at once.
+The module ships `server-jahia.cfg` for this Jahia's own MCP server; a remote server is three lines:
 
 ```properties
 name=analytics
+label=Analytics
 url=https://mcp.example.com/mcp
-oauthGrant=client_credentials
-oauthClientId=<client id>
-oauthClientSecret=<client secret>
-oauthScope=mcp:read
 ```
+
+plus the fields of its authentication: nothing for a per-user OAuth sign-in (users click **Connect**),
+`authHeader`/`authValue` for a fixed key, `oauthGrant=client_credentials` with a client id and secret for one shared
+account, and `sites=` to limit it to some sites. Its tools reach the assistant as `<name>.<tool>`.
+
+**Full guide:** [docs/mcp-servers.md](docs/mcp-servers.md): every setting, examples per authentication, how
+remote tools reach the agent, checking a server, troubleshooting.
 
 ### User preferences (gear icon in the chat)
 

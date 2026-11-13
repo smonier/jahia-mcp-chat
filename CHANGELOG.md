@@ -4,6 +4,11 @@ All notable changes to Jahia MCP Chat. Format: [Keep a Changelog](https://keepac
 
 ## [Unreleased]
 
+### Added
+
+- `docs/mcp-servers.md`: how to add an MCP server (the factory configuration, from the console or as a file),
+  every setting, examples per authentication, checks and troubleshooting. The README links to it.
+
 ## [1.0.1] - 2026-11-13
 
 ### Fixed
