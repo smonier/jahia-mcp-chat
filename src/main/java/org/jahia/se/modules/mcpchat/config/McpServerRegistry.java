@@ -54,6 +54,24 @@ public class McpServerRegistry {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * @return every enabled remote server (absolute URL), whatever its sites: their tools are registered once for
+     * the whole platform, and the chat restricts them per site
+     */
+    public List<McpServer.Snapshot> getRemoteServers() {
+        return servers.stream().map(McpServer::get)
+                .filter(s -> s.enabled && !s.isLocal())
+                .collect(Collectors.toMap(s -> s.name, s -> s, (a, b) -> a))
+                .values().stream()
+                .sorted(Comparator.comparing(s -> s.name))
+                .collect(Collectors.toList());
+    }
+
+    /** @return the enabled remote server with that name, whatever its sites, if any */
+    public Optional<McpServer.Snapshot> findRemote(String name) {
+        return getRemoteServers().stream().filter(s -> s.name.equals(name)).findFirst();
+    }
+
     /** @return the enabled server with that name allowed on the site, if any */
     public Optional<McpServer.Snapshot> find(String name, String siteKey) {
         return getServers(siteKey).stream().filter(s -> s.name.equals(name)).findFirst();

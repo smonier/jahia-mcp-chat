@@ -1,38 +1,19 @@
+/* Layout only: components and type come from Moonstone, colours from jContent's tokens */
 .message {
     display: flex;
-    gap: 8px;
-    animation: fadeUp 0.15s ease;
-}
-
-@keyframes fadeUp {
-    from { opacity: 0; transform: translateY(4px); }
-    to   { opacity: 1; transform: translateY(0); }
+    min-width: 0;
 }
 
 .user {
-    flex-direction: row-reverse;
-}
-
-.avatar {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: #0072b1;
-    color: #ffffff;
-    font-size: 11px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    margin-top: 2px;
+    justify-content: flex-end;
 }
 
 .content {
-    max-width: 84%;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--moon-spacing-small, 8px);
+    max-width: 88%;
+    min-width: 0;
 }
 
 .user .content {
@@ -40,203 +21,158 @@
 }
 
 .bubble {
-    background: #f4f5f7;
-    border: 1px solid #e4e4e4;
-    border-radius: 12px 12px 12px 2px;
-    padding: 9px 12px;
-    font-size: 13px;
-    line-height: 1.55;
-    color: #131c21;
-    white-space: pre-wrap;
-    word-break: break-word;
+    padding: var(--moon-spacing-small, 8px) var(--moon-spacing-medium, 16px);
+    border-radius: 8px;
+    background: var(--color-gray_light20, #f2f4f6);
+    min-width: 0;
 }
 
 .user .bubble {
-    background: #e8f4fd;
-    border-color: #bdd9f0;
-    border-radius: 12px 12px 2px 12px;
-    color: #004781;
+    background: var(--color-accent_light20, #e5f5fc);
 }
 
-/* Streaming cursor */
-.cursor {
-    display: inline-block;
-    width: 2px;
-    height: 0.9em;
-    background: #0072b1;
-    margin-left: 2px;
-    vertical-align: text-bottom;
-    border-radius: 1px;
-    animation: blink 0.8s step-end infinite;
+/* Moonstone typography does not wrap by itself: long answers and paths wrap here */
+.text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
-@keyframes blink { 50% { opacity: 0; } }
-
-/* Typing dots */
-.typingDots {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-    height: 16px;
-}
-
-.typingDots span {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #aeb1b7;
-    animation: bounce 1.2s ease-in-out infinite;
-}
-
-.typingDots span:nth-child(2) { animation-delay: 0.2s; }
-.typingDots span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes bounce {
-    0%, 60%, 100% { transform: translateY(0); }
-    30% { transform: translateY(-4px); }
-}
-
-/* Tool call */
 .toolCall {
-    border: 1px solid #e4e4e4;
-    border-radius: 6px;
-    overflow: hidden;
-    font-size: 11.5px;
-    background: #ffffff;
-    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--moon-spacing-nano, 4px);
+    padding: var(--moon-spacing-small, 8px);
+    border: 1px solid var(--color-gray_light40, #dfe3e8);
+    border-radius: 4px;
+    min-width: 0;
 }
 
 .toolCallHeader {
     display: flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 9px;
-    background: #f4f5f7;
-    border: none;
-    border-bottom: 1px solid transparent;
-    color: #5a6875;
-    width: 100%;
-    text-align: left;
-    font: inherit;
+    gap: var(--moon-spacing-small, 8px);
+    min-width: 0;
 }
-
-.toolCallHeader:not(:disabled):hover { background: #ecedef; }
-
-.toolCallIcon { color: #7a7f88; flex-shrink: 0; }
 
 .toolCallName {
-    font-family: 'SFMono-Regular', Consolas, monospace;
-    font-size: 11px;
-    color: #131c21;
-    font-weight: 500;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
-.toolCallArgs {
-    font-size: 10.5px;
-    color: #7a7f88;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 200px;
+.running {
+    display: inline-flex;
 }
 
-.toolCallStatus {
-    margin-left: auto;
-    font-size: 13px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
+.toolCallArgs,
+.toolCallSummary,
+.toolCallError {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--color-gray_dark, #293136);
 }
 
-.toolCallChevron {
-    font-size: 9px;
-    color: #7a7f88;
-    margin-left: 2px;
+.toolCallError {
+    color: var(--color-danger, #e0182d);
 }
-
-.done { color: #267729; }
-.running { color: #ef6c00; }
-
-.toolCallSummary {
-    padding: 5px 9px 6px;
-    font-size: 11.5px;
-    color: #3d5265;
-    line-height: 1.4;
-    border-top: 1px solid #ecedef;
-}
-
-.toolCallError { color: #c0392b; }
 
 .toolCallDetail {
     margin: 0;
-    padding: 7px 9px;
-    font-family: 'SFMono-Regular', Consolas, monospace;
-    font-size: 10px;
-    line-height: 1.45;
-    color: #5a6875;
-    overflow-x: auto;
-    white-space: pre;
-    background: #fafafa;
-    border-top: 1px solid #ecedef;
-    max-height: 200px;
+    max-height: 240px;
+    overflow: auto;
+    font-size: 11px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
-.spinner {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border: 1.5px solid #ef6c00;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.tokenBadge {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    margin-top: 4px;
-    font-size: 10px;
-    color: #9aa3ad;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.01em;
-    user-select: none;
-}
-
-.tokenIcon {
-    font-size: 9px;
-    opacity: 0.7;
-}
-
-.tokenTotal {
-    color: #b0b7bf;
-    font-weight: 500;
-}
-
-/* Attachment chips on user messages */
-.attachmentChips {
+.attachments {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    justify-content: flex-end;
-    margin-top: 2px;
+    gap: var(--moon-spacing-nano, 4px);
 }
 
-.attachmentChip {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    background: #d4e9f8;
-    border: 1px solid #bdd9f0;
-    border-radius: 5px;
-    padding: 2px 6px;
-    font-size: 10.5px;
-    color: #004781;
-    max-width: 160px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.tokens {
+    color: var(--color-gray_dark, #293136);
+}
+
+/* Markdown answers: Moonstone's body text, the browser's block structure, wrapped */
+.markdown {
+    font-family: var(--moon-font-family, inherit);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--color-dark, #131c21);
+    overflow-wrap: anywhere;
+    min-width: 0;
+}
+
+.markdown > :first-child {
+    margin-top: 0;
+}
+
+.markdown > :last-child {
+    margin-bottom: 0;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown pre,
+.markdown table,
+.markdown blockquote {
+    margin: 0 0 var(--moon-spacing-small, 8px);
+}
+
+.markdown ul,
+.markdown ol {
+    padding-left: var(--moon-spacing-large, 20px);
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+    margin: var(--moon-spacing-small, 8px) 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.markdown code {
+    font-size: 12px;
+    padding: 0 2px;
+    background: var(--color-gray_light40, #dfe3e8);
+    border-radius: 2px;
+}
+
+.markdown pre {
+    overflow-x: auto;
+    padding: var(--moon-spacing-small, 8px);
+    background: var(--color-gray_light40, #dfe3e8);
+    border-radius: 4px;
+}
+
+.markdown pre code {
+    padding: 0;
+    background: none;
+}
+
+.markdown table {
+    display: block;
+    overflow-x: auto;
+    border-collapse: collapse;
+}
+
+.markdown th,
+.markdown td {
+    padding: 4px 8px;
+    border: 1px solid var(--color-gray_light40, #dfe3e8);
+    text-align: left;
+}
+
+.markdown a {
+    color: var(--color-accent, #00a0e3);
+}
+
+.markdown blockquote {
+    padding-left: var(--moon-spacing-small, 8px);
+    border-left: 3px solid var(--color-gray_light40, #dfe3e8);
 }

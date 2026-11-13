@@ -4,6 +4,7 @@ import org.jahia.se.modules.mcpchat.config.McpChatConfigService;
 import org.jahia.se.modules.mcpchat.config.McpServer;
 import org.jahia.se.modules.mcpchat.config.McpServerRegistry;
 import org.jahia.se.modules.mcpchat.oauth.UserOAuthService;
+import org.jahia.se.modules.mcpchat.remote.RemoteToolBridge;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.osgi.service.component.annotations.Component;
@@ -49,6 +50,9 @@ public class OAuthServlet extends HttpServlet {
 
     @Reference
     private UserOAuthService userOAuth;
+
+    @Reference
+    private RemoteToolBridge bridge;
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {
@@ -123,6 +127,13 @@ public class OAuthServlet extends HttpServlet {
         UserOAuthService.Callback result = userOAuth.complete(req.getParameter("code"), req.getParameter("state"),
                 req.getParameter("error"), req.getSession(true),
                 JCRSessionFactory.getInstance().getCurrentUser().getName(), userSession);
+        if (result.error == null) {
+            String user = JCRSessionFactory.getInstance().getCurrentUser().getName();
+            Optional<McpServer.Snapshot> server = serverRegistry.findRemote(result.serverName);
+            if (server.isPresent()) {
+                bridge.refreshForUser(server.get(), user, userOAuth.accessToken(server.get(), userSession), true);
+            }
+        }
         page(res, result.serverName, result.error);
     }
 

@@ -2,10 +2,67 @@
 
 All notable changes to Jahia MCP Chat. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - 1.0.0-SNAPSHOT
+## [Unreleased]
+
+The chat runs on genai-connector, like automatic-content-tags 2.0: the module no longer holds LLM keys or talks
+to LLM providers. Breaking for any instance that ran a development build.
+
+### Changed
+
+- Every conversation runs on genai-connector's streamed agent (`/modules/genai/agent/stream`) on a model tier
+  (`advanced`, `balanced`, `lite`). The settings offer the tiers the connector can run, with their provider and
+  model, instead of a provider and a model.
+- `org.jahia.se.modules.mcpchat.cfg`: `DEFAULT_TIER` replaces `DEFAULT_PROVIDER` and `DEFAULT_MODEL`;
+  `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `DEEPSEEK_API_KEY` are no longer read (the log names any left);
+  `MAX_TOKENS` is a ceiling, 0 for the tier's own value.
+- Remote MCP servers are bridged: the module registers each of their tools as a `JahiaMcpTool` service named
+  `<server>.<tool>`, which the agent runs with the calling user's sign-in, a shared client-credentials token or
+  a fixed header. Tool lists are read with that credential and kept in `remote-tools.json`. The servers' `sites`
+  restrict the tools the chat lets the agent use. The bridged tools are also listed by the Jahia MCP server.
+- The Jahia tools run in-process in the connector under the user's permissions, instead of the browser calling
+  `/modules/mcp`.
+- Attached images go to the model as images; images and other files are kept 30 minutes for the new
+  `chat.upload_attachment` tool (`AttachmentServlet`, `UploadAttachmentTool`), which puts them in the media
+  library with the user's session.
+- A tool that changes something waits for **Allow** / **Deny** in the chat; destructive tools are not offered.
+- `mcp-server` is a module dependency.
+- A refused client registration shows the authorization server's reason and what to do (trust the Jahia host,
+  or register a client and set `oauthClientId`), instead of a bare status code. BotRank refuses self-registration
+  from non-localhost hosts ("Trusted Hosts" policy).
+
+- The drawer docks in jContent's content area beside the page under edit, like content-governance's (`useDock`:
+  the page narrows, the width is dragged on the left edge and remembered, Escape closes), with **Chat** and
+  **Settings** tabs. The whole UI is built from Moonstone components (`Paper`, `Tab`, `Banner`, `Chip`, `Button`,
+  `Dropdown`, `Input`, `Textarea`, `Typography`, `Loader`); custom CSS is layout only.
+
+- Answers render as Markdown (`react-markdown` with `remark-gfm`: lists, tables, code, links in a new tab). Raw HTML
+  in an answer is ignored and unsafe link protocols are dropped: answers are model output.
+
+### Removed
+
+- `LlmProxyServlet` (`/llm-proxy`) and the Anthropic, OpenAI and DeepSeek loops in the browser.
+- `McpProxyServlet` (`/mcp`): remote servers are called from the bridge, never from the browser.
+- The `allowedTools` workaround for tool schemas with `$ref`, fixed in genai-connector (Jahia/genai-connector#12).
+- The unused `McpChatPanel` and `ModelSelector` components.
+
+## [1.0.0] - 2026-10-16
+
+First release: a jContent chat drawer driving Jahia and other MCP servers with the LLM of your choice.
+
+Requires Jahia 8.2 (tested on 8.2.3.2 with jahia-csrf-guard 4.3.0) and the Jahia MCP server module for the local
+tools; genai-connector is optional.
+
+### Upgrading from a development build
+
+- Move `MCP_ENDPOINT` out of `org.jahia.se.modules.mcpchat.cfg`: the local server is now
+  `org.jahia.se.modules.mcpchat.server-jahia.cfg`, shipped with the module. `MCP_JWT_TOKEN` is gone.
+- Saved preferences from earlier builds were never stored (see Fixed): users pick their provider and model once.
 
 ### Added
 
+- LLM chat drawer from the **MCP Chat** button of the jContent header toolbar: Anthropic, OpenAI and DeepSeek
+  through a server-side proxy (`LlmProxyServlet`), agentic tool loop, streaming, token counter, history in the
+  browser, Skills (Markdown added to the system prompt).
 - Several MCP servers, one OSGi factory configuration each
   (`org.jahia.se.modules.mcpchat.server-<name>.cfg`, "Jahia MCP Chat - MCP server" in the OSGi configurations
   screen). The module ships `server-jahia.cfg` for the local Jahia MCP server and falls back to `/modules/mcp`
@@ -33,6 +90,8 @@ All notable changes to Jahia MCP Chat. Format: [Keep a Changelog](https://keepac
 
 ### Changed
 
+- The system prompt answers general questions (knowledge, writing, translation, code) directly, and calls tools
+  only for the site and the connected services.
 - `MCP_ENDPOINT` and `MCP_JWT_TOKEN` are removed from `org.jahia.se.modules.mcpchat.cfg`: MCP servers have
   their own files.
 - `/config` takes `?site=<key>` and returns the site's MCP servers, without credentials or remote URLs.
@@ -53,3 +112,6 @@ All notable changes to Jahia MCP Chat. Format: [Keep a Changelog](https://keepac
 
 - Guests refused on every servlet; API keys and MCP credentials kept server-side; CORS and token exposure
   fixed; user-submitted MCP tokens never stored.
+
+[Unreleased]: https://github.com/smonier/jahia-mcp-chat/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/smonier/jahia-mcp-chat/releases/tag/v1.0.0

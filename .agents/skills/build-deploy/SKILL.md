@@ -10,15 +10,18 @@ description: Build jahia-mcp-chat, deploy it to a local Jahia and check it works
    JAVA_HOME=/opt/homebrew/opt/openjdk@17 mvn clean install -q
    ```
    The jar must contain `javascript/apps/remoteEntry.js`, `OSGI-INF/metatype/...McpServerConfig.xml` and the
-   three files of `META-INF/configurations/`.
+   three files of `META-INF/configurations/`. mcp-server must be in `~/.m2` (`mvn install` in its checkout).
+   The provisioning API refuses a cookie session: deploy with basic auth.
 2. Find the Jahia port first (`docker ps`): it is not always 8080. Deploy:
    ```bash
    curl -s -u root:<password> -X POST http://localhost:<port>/modules/api/bundles \
      -F "bundle=@target/jahia-mcp-chat-1.0.0-SNAPSHOT.jar" -F "start=true"
    curl -s -u root:<password> "http://localhost:<port>/modules/api/bundles/org.jahia.se.modules/org.jahia.se.modules.jahiaMcpChat/1.0.0.SNAPSHOT/_localInfo"
    ```
-   Expect `ACTIVE` / `STARTED`. The local tools need the `mcp-server` module too: `/modules/mcp` answering 404
-   means it is missing.
+   Expect `ACTIVE` / `STARTED`. The module depends on `mcp-server` (installed first) and needs genai-connector:
+   `/modules/genai/status` must show a tier with `agentAvailable: true` (the connector needs a key, set in
+   `karaf/etc/org.jahia.modules.genai.cfg`; the default Jahia AI gateway answers only on the Jahia VPN). Its
+   `tools` list holds the Jahia tools, `chat.upload_attachment` and the bridged `<server>.<tool>` tools.
 3. Read the deployed configuration back from the container (`karaf/etc`): a file with the
    `# default configuration` marker is never replaced by a redeploy. The CSRF guard cfg must contain the
    `whitelist` line.
@@ -26,7 +29,9 @@ description: Build jahia-mcp-chat, deploy it to a local Jahia and check it works
 5. Check `/config` from a signed-in browser (curl without the CSRF token is refused with a 302 to
    `/error.html`, which is the guard working): fetch the master token from `/modules/CsrfServlet`, POST it for
    page tokens, then call `/config?site=<key>` three times in a row; all must answer 200.
-6. A remote OAuth server: `curl -u root:<password> -D - ".../modules/jahia-mcp-chat/oauth/start?server=<name>&site=<key>"`
+6. A remote server's tools: `docker logs ... | grep RemoteToolBridge` shows `Registered N tools of MCP server
+   <name>` (after a sign-in for a per-user server), and they appear in `/modules/genai/status`.
+7. A remote OAuth server: `curl -u root:<password> -D - ".../modules/jahia-mcp-chat/oauth/start?server=<name>&site=<key>"`
    must redirect to the server's authorization endpoint (not `/error.html`). Failures are logged by
-   `UserOAuthService` and `McpProxyServlet`: `docker logs --since 10m <container> | grep -E "UserOAuthService|McpProxyServlet"`.
-7. Update `CHANGELOG.md` and the README in the same commit.
+   `UserOAuthService` and `RemoteToolBridge`: `docker logs --since 10m <container> | grep -E "UserOAuthService|RemoteToolBridge"`.
+8. Update `CHANGELOG.md` and the README in the same commit.

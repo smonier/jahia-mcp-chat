@@ -3,15 +3,18 @@ package org.jahia.se.modules.mcpchat.config;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Modified;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * OSGi-managed LLM configuration for Jahia MCP Chat (MCP servers: {@link McpServerRegistry}).
- * Edit digital-factory-data/karaf/etc/org.jahia.se.modules.mcpchat.cfg at runtime
- * — changes are picked up immediately via @Modified without redeployment.
+ * Main configuration of Jahia MCP Chat (PID {@code org.jahia.se.modules.mcpchat}). The models, their providers
+ * and keys belong to genai-connector; this configuration only picks the default model tier and shapes the
+ * conversation. MCP servers have their own factory configurations ({@link McpServerRegistry}).
+ * Changes apply through {@code @Modified} without a redeploy. Thread-safe: one volatile snapshot.
  */
 @Component(
         service = McpChatConfigService.class,
@@ -19,44 +22,37 @@ import java.util.Map;
         immediate = true)
 public class McpChatConfigService {
 
-    private volatile Snapshot config = Snapshot.defaults();
+    private static final Logger logger = LoggerFactory.getLogger(McpChatConfigService.class);
+    private static final Set<String> TIERS = Set.of("advanced", "balanced", "lite");
+    private static final List<String> LEGACY_KEYS = List.of(
+            "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY", "DEFAULT_PROVIDER", "DEFAULT_MODEL");
+
+    private volatile Snapshot config = Snapshot.from(Map.of());
 
     @Activate
     @Modified
     protected void activate(Map<String, Object> properties) {
         this.config = Snapshot.from(properties);
+        for (String key : LEGACY_KEYS) {
+            Object v = properties.get(key);
+            if (v instanceof String && !((String) v).isBlank()) {
+                logger.warn("{} is no longer read: the chat runs on genai-connector, configure its model tiers "
+                        + "(org.jahia.modules.genai) and remove this key", key);
+            }
+        }
     }
 
-    public String getApiKeyForProvider(String provider) {
-        if ("openai".equalsIgnoreCase(provider)) return config.openaiApiKey;
-        if ("deepseek".equalsIgnoreCase(provider)) return config.deepseekApiKey;
-        return config.anthropicApiKey;
+    /** @return the tier used when a user has not chosen one: advanced, balanced or lite */
+    public String getDefaultTier() {
+        return config.defaultTier;
     }
 
-    public boolean hasProvider(String provider) {
-        return !getApiKeyForProvider(provider).isBlank();
-    }
-
-    public List<String> getAvailableProviders() {
-        List<String> providers = new ArrayList<>();
-        if (!config.anthropicApiKey.isBlank()) providers.add("anthropic");
-        if (!config.openaiApiKey.isBlank())    providers.add("openai");
-        if (!config.deepseekApiKey.isBlank())  providers.add("deepseek");
-        return providers;
-    }
-
-    public String getDefaultProvider() {
-        return config.defaultProvider;
-    }
-
-    public String getDefaultModel() {
-        return config.defaultModel;
-    }
-
+    /** @return the ceiling on output tokens per model call, or 0 to leave the tier's own value */
     public int getMaxTokens() {
         return config.maxTokens;
     }
 
+    /** @return instructions appended to the system prompt, possibly empty */
     public String getSystemPromptAppendix() {
         return config.systemPromptAppendix;
     }
@@ -66,64 +62,39 @@ public class McpChatConfigService {
         return config.publicBaseUrl;
     }
 
-    // Immutable snapshot — a single volatile read gives a fully-consistent config view
     private static final class Snapshot {
-
-        final String anthropicApiKey;
-        final String openaiApiKey;
-        final String deepseekApiKey;
-        final String defaultProvider;
-        final String defaultModel;
-        final int    maxTokens;
+        final String defaultTier;
+        final int maxTokens;
         final String systemPromptAppendix;
         final String publicBaseUrl;
 
-        private Snapshot(String anthropicApiKey,
-                         String openaiApiKey, String deepseekApiKey, String defaultProvider,
-                         String defaultModel, int maxTokens, String systemPromptAppendix, String publicBaseUrl) {
-            this.anthropicApiKey      = anthropicApiKey;
-            this.openaiApiKey         = openaiApiKey;
-            this.deepseekApiKey       = deepseekApiKey;
-            this.defaultProvider      = defaultProvider;
-            this.defaultModel         = defaultModel;
-            this.maxTokens            = maxTokens;
+        private Snapshot(String defaultTier, int maxTokens, String systemPromptAppendix, String publicBaseUrl) {
+            this.defaultTier = defaultTier;
+            this.maxTokens = maxTokens;
             this.systemPromptAppendix = systemPromptAppendix;
-            this.publicBaseUrl        = publicBaseUrl.replaceAll("/+$", "");
-        }
-
-        static Snapshot defaults() {
-            return new Snapshot(
-                "", "", "",
-                "anthropic", "claude-sonnet-4-6",
-                4096, "", ""
-            );
+            this.publicBaseUrl = publicBaseUrl.replaceAll("/+$", "");
         }
 
         static Snapshot from(Map<String, Object> p) {
+            String tier = str(p, "DEFAULT_TIER", "balanced").toLowerCase();
             return new Snapshot(
-                str(p, "ANTHROPIC_API_KEY",        ""),
-                str(p, "OPENAI_API_KEY",           ""),
-                str(p, "DEEPSEEK_API_KEY",         ""),
-                str(p, "DEFAULT_PROVIDER",         "anthropic"),
-                str(p, "DEFAULT_MODEL",            "claude-sonnet-4-6"),
-                intVal(p, "MAX_TOKENS",            4096),
-                str(p, "SYSTEM_PROMPT_APPENDIX",   ""),
-                str(p, "PUBLIC_BASE_URL",          "")
-            );
+                    TIERS.contains(tier) ? tier : "balanced",
+                    Math.max(intVal(p, "MAX_TOKENS", 0), 0),
+                    str(p, "SYSTEM_PROMPT_APPENDIX", ""),
+                    str(p, "PUBLIC_BASE_URL", ""));
         }
 
         private static String str(Map<String, Object> m, String key, String def) {
             Object v = m.get(key);
-            if (v instanceof String) {
-                String s = (String) v;
-                return !s.isBlank() ? s.trim() : def;
-            }
-            return def;
+            return v instanceof String && !((String) v).isBlank() ? ((String) v).trim() : def;
         }
 
         private static int intVal(Map<String, Object> m, String key, int def) {
-            try { return Integer.parseInt(String.valueOf(m.get(key))); }
-            catch (Exception e) { return def; }
+            try {
+                return Integer.parseInt(String.valueOf(m.get(key)).trim());
+            } catch (NumberFormatException e) {
+                return def;
+            }
         }
     }
 }

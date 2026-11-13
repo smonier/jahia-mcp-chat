@@ -1,61 +1,63 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {useSelector} from 'react-redux';
 import {useTranslation} from 'react-i18next';
-import {fetchMcpTools, useMcpChat} from './useMcpChat';
+import {ArrowUp, Banner, Button, Cancel, Chip, Close, Delete, File, Image, Tab, TabItem, Textarea, Typography, Upload} from '@jahia/moonstone';
+import {resolveTier, useMcpChat} from './useMcpChat';
 import {useSettings} from './useSettings';
 import {useConfig} from './useConfig';
+import {useDock} from './useDock';
 import {ChatMessage} from './ChatMessage';
 import {McpSettings} from './McpSettings';
+import {readFile} from './fileAttachments';
 import styles from './McpChatDrawer.module.css';
 
-import {readFile} from './fileAttachments';
+const TITLE_ID = 'jahia-mcp-chat-drawer-title';
 
-export function McpChatDrawer({isOpen, onClose}) {
+export function McpChatDrawer({onClose}) {
     const {t} = useTranslation('jahia-mcp-chat');
     const {settings, updateSettings, addSkill, removeSkill} = useSettings();
     const siteKey = useSelector(state => state.site);
-    const {config, configLoaded, reloadConfig} = useConfig(siteKey);
-    const [signInRequired, setSignInRequired] = useState([]);
-    const [mcpTools, setMcpTools] = useState([]);
-    const [toolsLoading, setToolsLoading] = useState(false);
-    const {messages, isStreaming, sendMessage, stopStreaming, clearMessages, pendingApproval, answerApproval} = useMcpChat(settings, mcpTools, siteKey, config);
+    const {config, genai, configLoaded, reloadConfig} = useConfig(siteKey);
+    const {messages, isStreaming, sendMessage, stopStreaming, clearMessages, pendingApproval, answerApproval} = useMcpChat(settings, siteKey, config, genai);
     const [input, setInput] = useState('');
     const [attachments, setAttachments] = useState([]);
-    const [showSettings, setShowSettings] = useState(false);
+    const [tab, setTab] = useState('chat');
+    const drawerRef = useRef(null);
     const messagesEndRef = useRef(null);
-    const textareaRef = useRef(null);
     const fileInputRef = useRef(null);
+    const dock = useDock(drawerRef);
 
-    const mcpServers = config.mcpServers;
-    const loadTools = useCallback(async () => {
-        if (!mcpServers?.length) {
-            setMcpTools([]);
-            setSignInRequired([]);
-            return;
-        }
-        setToolsLoading(true);
-        const {tools, signInRequired: needSignIn} = await fetchMcpTools(mcpServers, siteKey);
-        setMcpTools(tools);
-        setSignInRequired(needSignIn);
-        setToolsLoading(false);
-    }, [mcpServers, siteKey]);
+    // The tools the agent may call on this site: every tool the connector offers, minus remote servers not
+    // allowed here
+    const blocked = new Set(config.blockedTools || []);
+    const mcpTools = (genai?.tools || []).filter(tool => !blocked.has(tool.name));
+    const tier = resolveTier(settings, config, genai);
+    const ready = Boolean(genai) && Boolean(tier);
+    const tierInfo = genai?.tiers?.[tier];
 
-    // Fetch tool list whenever the drawer opens or the site's MCP servers change
+    // Take focus on open and give it back on close: a portal has no place in the page's focus order
     useEffect(() => {
-        if (isOpen) loadTools();
-    }, [isOpen, loadTools]);
+        const previous = document.activeElement;
+        drawerRef.current?.focus();
+        return () => {
+            if (typeof previous?.focus === 'function') previous.focus();
+        };
+    }, []);
+
+    // Escape closes. The panel is not modal: focus moves freely between it and the page under edit.
+    useEffect(() => {
+        const node = drawerRef.current;
+        if (!node) return undefined;
+        const onKeyDown = e => {
+            if (e.key === 'Escape' && !e.defaultPrevented) onClose();
+        };
+        node.addEventListener('keydown', onKeyDown);
+        return () => node.removeEventListener('keydown', onKeyDown);
+    }, [onClose]);
 
     useEffect(() => {
-        if (isOpen) {
-            messagesEndRef.current?.scrollIntoView({behavior: 'smooth'});
-        }
-    }, [messages, isOpen]);
-
-    useEffect(() => {
-        if (isOpen && textareaRef.current) {
-            setTimeout(() => textareaRef.current?.focus(), 200);
-        }
-    }, [isOpen]);
+        messagesEndRef.current?.scrollIntoView({behavior: 'smooth'});
+    }, [messages, pendingApproval]);
 
     const handleFileChange = async e => {
         const files = Array.from(e.target.files);
@@ -65,8 +67,6 @@ export function McpChatDrawer({isOpen, onClose}) {
         e.target.value = '';
     };
 
-    const removeAttachment = index => setAttachments(prev => prev.filter((_, i) => i !== index));
-
     const handleSend = () => {
         const text = input.trim();
         if (!text && attachments.length === 0) return;
@@ -74,7 +74,6 @@ export function McpChatDrawer({isOpen, onClose}) {
         setInput('');
         setAttachments([]);
         sendMessage(text, toSend);
-        setShowSettings(false);
     };
 
     const handleKeyDown = e => {
@@ -84,208 +83,147 @@ export function McpChatDrawer({isOpen, onClose}) {
         }
     };
 
-    const handleBackdropClick = e => {
-        if (e.target === e.currentTarget) onClose();
-    };
+    const subtitle = [
+        tierInfo ? [t(`settings.tiers.${tier}`), tierInfo.model].filter(Boolean).join(' - ') : null,
+        mcpTools.length > 0 ? t('settings.toolCount', {count: mcpTools.length}) : null
+    ].filter(Boolean).join(' | ');
 
     return (
-        <>
-            {/* Backdrop */}
-            <div
-                className={`${styles.backdrop} ${isOpen ? styles.backdropVisible : ''}`}
-                onClick={handleBackdropClick}
-                aria-hidden="true"
-            />
+        // A non-modal <dialog> rendered open (showModal() would put it above Content Editor and jContent's
+        // menus); useDock places it in jContent's content area, beside the page under edit.
+        <dialog ref={drawerRef} open className={styles.drawer} aria-labelledby={TITLE_ID} tabIndex={-1}>
+            <button type="button"
+                    aria-label={t('panel.resize')}
+                    title={t('panel.resize')}
+                    className={styles.resize}
+                    onPointerDown={dock.onPointerDown}
+                    onKeyDown={dock.onKeyDown}/>
+            <header className={styles.header}>
+                <div className={styles.headerText}>
+                    <Typography id={TITLE_ID} variant="heading" component="h2">{t('panel.title')}</Typography>
+                    {subtitle && <Typography variant="caption" className={styles.subtitle}>{subtitle}</Typography>}
+                </div>
+                <div className={styles.headerActions}>
+                    {messages.length > 0 && (
+                        <Button variant="ghost" icon={<Delete/>} aria-label={t('panel.clear')} title={t('panel.clear')}
+                                isDisabled={isStreaming} onClick={clearMessages}/>
+                    )}
+                    <Button variant="ghost" icon={<Close/>} aria-label={t('panel.close')} title={t('panel.close')} onClick={() => onClose()}/>
+                </div>
+            </header>
 
-            {/* Drawer */}
-            <aside
-                className={`${styles.drawer} ${isOpen ? styles.drawerOpen : ''}`}
-                role="complementary"
-                aria-label={t('panel.title')}
-                aria-hidden={!isOpen}
-            >
-                {/* Header */}
-                <header className={styles.header}>
-                    <div className={styles.headerLeft}>
-                        <span className={styles.headerIcon} aria-hidden="true">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/>
-                                <circle cx="9" cy="10" r="1"/><circle cx="12" cy="10" r="1"/><circle cx="15" cy="10" r="1"/>
-                            </svg>
-                        </span>
-                        <span className={styles.headerTitle}>{t('panel.title')}</span>
-                        {toolsLoading && <span className={styles.toolsBadge}>…</span>}
-                        {!toolsLoading && mcpTools.length > 0 && (
-                            <span className={styles.toolsBadge} title={mcpTools.map(t => t.name).join(', ')}>
-                                {mcpTools.length} tools
-                            </span>
-                        )}
-                    </div>
-                    <div className={styles.headerRight}>
-                        {messages.length > 0 && (
-                            <button
-                                className={styles.iconBtn}
-                                onClick={clearMessages}
-                                title={t('panel.clear')}
-                                aria-label={t('panel.clear')}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                                    <path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-                                </svg>
-                            </button>
-                        )}
-                        <button
-                            className={`${styles.iconBtn} ${showSettings ? styles.iconBtnActive : ''}`}
-                            onClick={() => setShowSettings(s => !s)}
-                            title={t('settings.title')}
-                            aria-label={t('settings.title')}
-                            aria-expanded={showSettings}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96a7.05 7.05 0 00-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.477.477 0 00-.59.22L2.74 8.87a.47.47 0 00.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 00-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-                            </svg>
-                        </button>
-                        <button
-                            className={styles.iconBtn}
-                            onClick={onClose}
-                            title={t('panel.close')}
-                            aria-label={t('panel.close')}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                            </svg>
-                        </button>
-                    </div>
-                </header>
+            <div className={styles.tabBar}>
+                <Tab className={styles.tabs} role="tablist" aria-label={t('panel.title')}>
+                    {['chat', 'settings'].map(id => (
+                        <TabItem key={id}
+                                 id={`jahia-mcp-chat-tab-${id}`}
+                                 role="tab"
+                                 aria-selected={tab === id}
+                                 aria-controls={`jahia-mcp-chat-panel-${id}`}
+                                 label={t(`panel.tabs.${id}`)}
+                                 isSelected={tab === id}
+                                 onClick={() => setTab(id)}/>
+                    ))}
+                </Tab>
+            </div>
 
-                {/* Settings panel (collapsible) */}
-                {showSettings && (
-                    <McpSettings
-                        settings={settings}
-                        config={config}
-                        onUpdate={updateSettings}
-                        onAddSkill={addSkill}
-                        onRemoveSkill={removeSkill}
-                        onClose={() => setShowSettings(false)}
-                        siteKey={siteKey}
-                        mcpTools={mcpTools}
-                        toolsLoading={toolsLoading}
-                        signInRequired={signInRequired}
-                        onServersChanged={reloadConfig}
-                    />
-                )}
+            <div id="jahia-mcp-chat-panel-settings" role="tabpanel" aria-labelledby="jahia-mcp-chat-tab-settings"
+                 className={styles.settingsPanel} hidden={tab !== 'settings'}>
+                <McpSettings settings={settings}
+                             config={config}
+                             genai={genai}
+                             onUpdate={updateSettings}
+                             onAddSkill={addSkill}
+                             onRemoveSkill={removeSkill}
+                             siteKey={siteKey}
+                             mcpTools={mcpTools}
+                             toolsLoading={!configLoaded}
+                             onServersChanged={reloadConfig}/>
+            </div>
 
-                {/* Messages */}
+            <div id="jahia-mcp-chat-panel-chat" role="tabpanel" aria-labelledby="jahia-mcp-chat-tab-chat"
+                 className={styles.chatPanel} hidden={tab !== 'chat'}>
                 <div className={styles.messages} role="log" aria-live="polite" aria-label={t('panel.messages')}>
-                    {messages.length === 0 && !showSettings && (
-                        <div className={styles.emptyState}>
-                            <div className={styles.emptyIcon} aria-hidden="true">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
-                                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/>
-                                    <circle cx="9" cy="10" r="1"/><circle cx="12" cy="10" r="1"/><circle cx="15" cy="10" r="1"/>
-                                </svg>
-                            </div>
-                            <p className={styles.emptyTitle}>{t('panel.empty')}</p>
-                            {!settings.llmApiKey && (
-                                <p className={styles.emptyHint}>
-                                    {t('panel.configHint')}
-                                    {' '}
-                                    <button className={styles.linkBtn} onClick={() => setShowSettings(true)}>
-                                        {t('panel.configLink')}
-                                    </button>
-                                </p>
+                    {messages.length === 0 && (
+                        <div className={styles.empty}>
+                            <Typography>{t('panel.empty')}</Typography>
+                            {configLoaded && !ready && (
+                                <div className={styles.notice}>
+                                    <Banner variant="warning" title={t('panel.notReady')}>
+                                        <Typography>{t(genai ? 'panel.noTier' : 'panel.noConnector')}</Typography>
+                                    </Banner>
+                                </div>
                             )}
                         </div>
                     )}
                     {messages.map((msg, i) => (
-                        <ChatMessage key={i} message={msg} />
+                        <ChatMessage key={i} message={msg}/>
                     ))}
-                    <div ref={messagesEndRef} />
+                    <div ref={messagesEndRef}/>
                 </div>
 
                 {pendingApproval && (
-                    <div className={styles.approvalBar} role="alertdialog" aria-label={t('approval.title')}>
-                        <p className={styles.approvalText}>
-                            {t('approval.question', {tool: pendingApproval.name})}
-                        </p>
-                        {pendingApproval.argumentsJson && (
-                            <pre className={styles.approvalArgs}>{pendingApproval.argumentsJson}</pre>
-                        )}
-                        <div className={styles.approvalActions}>
-                            <button type="button" className={styles.approvalDeny} onClick={() => answerApproval(false)}>
-                                {t('approval.deny')}
-                            </button>
-                            <button type="button" className={styles.approvalApprove} onClick={() => answerApproval(true)}>
-                                {t('approval.approve')}
-                            </button>
-                        </div>
+                    <div className={styles.approval} role="alertdialog" aria-label={t('approval.title')}>
+                        <Banner variant="warning" title={t('approval.question', {tool: pendingApproval.name})}>
+                            <div className={styles.approvalBody}>
+                                {pendingApproval.argumentsJson && (
+                                    <pre className={styles.approvalArgs}>{pendingApproval.argumentsJson}</pre>
+                                )}
+                                <div className={styles.approvalActions}>
+                                    <Button variant="outlined" label={t('approval.deny')} onClick={() => answerApproval(false)}/>
+                                    <Button color="accent" label={t('approval.approve')} onClick={() => answerApproval(true)}/>
+                                </div>
+                            </div>
+                        </Banner>
                     </div>
                 )}
 
-                {/* Input */}
                 <div className={styles.inputArea}>
                     {attachments.length > 0 && (
-                        <div className={styles.attachmentList}>
+                        <ul className={styles.attachmentList}>
                             {attachments.map((att, i) => (
-                                <div key={i} className={styles.attachmentChip}>
-                                    <span aria-hidden="true">{att.kind === 'image' ? '🖼' : '📄'}</span>
-                                    <span className={styles.attachmentName} title={att.name}>{att.name}</span>
-                                    <button
-                                        className={styles.attachmentRemove}
-                                        onClick={() => removeAttachment(i)}
-                                        aria-label={t('input.removeAttachment', {name: att.name})}
-                                        type="button"
-                                    >×</button>
-                                </div>
+                                <li key={`${att.name}-${i}`} className={styles.attachment}>
+                                    <Chip label={att.name} icon={att.kind === 'image' ? <Image/> : <File/>}/>
+                                    <Button variant="ghost" size="small" icon={<Close/>}
+                                            aria-label={t('input.removeAttachment', {name: att.name})}
+                                            onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))}/>
+                                </li>
                             ))}
-                        </div>
+                        </ul>
                     )}
-                    <div className={styles.inputRow}>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            multiple
-                            className={styles.fileInput}
-                            onChange={handleFileChange}
-                            aria-hidden="true"
-                            tabIndex={-1}
-                        />
-                        <button
-                            className={styles.attachBtn}
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isStreaming}
-                            title={t('input.attach')}
-                            aria-label={t('input.attach')}
-                            type="button"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 015 0v10.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5V6H9v9.5a3.5 3.5 0 007 0V5c0-2.76-2.24-5-5-5S6 2.24 6 5v12.5c0 3.87 3.13 7 7 7s7-3.13 7-7V6h-3.5z"/></svg>
-                        </button>
-                        <textarea
-                            ref={textareaRef}
-                            className={styles.textarea}
-                            value={input}
-                            onChange={e => setInput(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder={t('input.placeholder')}
-                            disabled={isStreaming}
-                            rows={3}
-                            aria-label={t('input.label')}
-                        />
-                        <button
-                            className={`${styles.sendBtn} ${isStreaming ? styles.sendBtnStop : ''}`}
-                            onClick={isStreaming ? stopStreaming : handleSend}
-                            disabled={!isStreaming && !input.trim() && attachments.length === 0}
-                            aria-label={isStreaming ? t('input.stop') : t('input.send')}
-                            title={isStreaming ? t('input.stop') : t('input.send')}
-                        >
-                            {isStreaming
-                                ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
-                                : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-                            }
-                        </button>
+                    <Textarea className={styles.textarea}
+                              value={input}
+                              placeholder={t('input.placeholder')}
+                              aria-label={t('input.label')}
+                              isDisabled={isStreaming}
+                              rows={3}
+                              onChange={e => setInput(e.target.value)}
+                              onKeyDown={handleKeyDown}/>
+                    <div className={styles.inputActions}>
+                        <input ref={fileInputRef}
+                               type="file"
+                               multiple
+                               className={styles.fileInput}
+                               tabIndex={-1}
+                               aria-hidden="true"
+                               onChange={handleFileChange}/>
+                        <Button variant="ghost"
+                                icon={<Upload/>}
+                                label={t('input.attach')}
+                                isDisabled={isStreaming}
+                                onClick={() => fileInputRef.current?.click()}/>
+                        {isStreaming ? (
+                            <Button color="danger" variant="outlined" icon={<Cancel/>} label={t('input.stop')} onClick={stopStreaming}/>
+                        ) : (
+                            <Button color="accent"
+                                    icon={<ArrowUp/>}
+                                    label={t('input.send')}
+                                    isDisabled={!ready || (!input.trim() && attachments.length === 0)}
+                                    onClick={handleSend}/>
+                        )}
                     </div>
                 </div>
-            </aside>
-        </>
+            </div>
+        </dialog>
     );
 }

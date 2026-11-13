@@ -1,21 +1,28 @@
-// Jahia GenAI connector (genai-connector module): the agent loop runs server-side with the Jahia MCP tools
-// in-process, under the user's own session. Remote MCP servers and images are not available in this mode.
-
-export const GENAI_PROVIDER = 'genai';
+// The chat runs on genai-connector's streamed agent (/modules/genai/agent/stream): the model, its provider and
+// key are the connector's, chosen by tier; the tools are the Jahia MCP tools plus the remote servers' tools this
+// module registers, each under the user's own permissions or sign-in.
+import {getCsrfHeaders, storeResponseToken, invalidateTokens} from './csrfToken';
 
 const ctx = () => window.contextJsParameters?.contextPath || '';
 const HEADERS = {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'};
+export const TIERS = ['advanced', 'balanced', 'lite'];
+export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-// {available, provider, model} or null when the connector is missing or its agent cannot run
+// {tiers: {advanced: {agentAvailable, provider, model}, ...}, tools: [{name, safety}]} or null when the connector
+// is not installed
 export async function fetchGenAiStatus() {
     try {
         const res = await fetch(`${ctx()}/modules/genai/status`, {credentials: 'same-origin', cache: 'no-store'});
         if (!res.ok || res.redirected) return null;
         const json = await res.json();
-        return json.available && json.agentAvailable ? {provider: json.provider || '', model: json.model || ''} : null;
+        return {tiers: json.tiers || {}, tools: json.tools || []};
     } catch {
         return null;
     }
+}
+
+export function availableTiers(status) {
+    return TIERS.filter(t => status?.tiers?.[t]?.agentAvailable);
 }
 
 export async function confirmToolCall(streamId, callId, approve) {
@@ -26,45 +33,41 @@ export async function confirmToolCall(streamId, callId, approve) {
     return res.ok;
 }
 
-function historyText(content) {
-    if (typeof content === 'string') return content;
-    if (Array.isArray(content)) return content.filter(b => b.type === 'text').map(b => b.text).join('\n');
-    return '';
+// Keeps a file for the chat.upload_attachment tool; returns its id
+export async function storeAttachment(att, bytes) {
+    const path = '/modules/jahia-mcp-chat/attachments';
+    const res = await fetch(`${ctx()}${path}?name=${encodeURIComponent(att.name)}`, {
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type': att.type || 'application/octet-stream', ...(await getCsrfHeaders(path))},
+        body: bytes
+    });
+    if (!res.ok || res.redirected) {
+        invalidateTokens();
+        throw new Error(`attachment ${res.status}`);
+    }
+    storeResponseToken(path, res);
+    return (await res.json()).id;
 }
 
-// Yields the same events as the other loops (text, tool_start, tool_result, usage) plus approval_required
-// Jahia tools the connector can hand to the provider: a schema with $ref loses its root $defs in the connector's
-// bridge and the provider rejects the whole request (Jahia/genai-connector#15). Names without the server prefix.
-export function genAiAllowedTools(mcpTools, servers, separator) {
-    const local = (servers || []).filter(s => s.local).map(s => s.name + separator);
-    const names = (mcpTools || [])
-        .filter(t => local.some(p => t.name.startsWith(p)))
-        .filter(t => !JSON.stringify(t.inputSchema || t.input_schema || {}).includes('$ref'))
-        .map(t => t.name.slice(t.name.indexOf(separator) + separator.length));
-    return names.length > 0 ? names : undefined;
-}
-
-export async function* runGenAiAgentLoop(messages, instructions, signal, maxTokens, locale, allowedTools) {
-    const turns = messages.map(m => ({role: m.role, text: historyText(m.content)})).filter(t => t.text);
-    const last = turns.pop();
-    if (!last || last.role !== 'user') throw new Error('Nothing to send');
-
+// Yields {type: text | tool_start | tool_result | approval_required | usage}
+export async function* runAgent({input, images, history, tier, instructions, maxTokens, locale, allowedTools, signal}) {
     const res = await fetch(`${ctx()}/modules/genai/agent/stream`, {
         method: 'POST', credentials: 'same-origin', headers: HEADERS, signal,
         body: JSON.stringify({
-            input: last.text,
+            input,
+            tier,
             instructions,
-            history: turns,
+            history,
+            ...(images?.length ? {images} : {}),
             ...(maxTokens ? {maxOutputTokens: maxTokens} : {}),
             ...(locale ? {locale} : {}),
             ...(allowedTools ? {allowedTools} : {})
         })
     });
-    if (!res.ok) throw new Error(`Jahia GenAI ${res.status}: ${await res.text()}`);
+    if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    const pending = []; // tool calls without a result yet, in order: tool_result frames carry no callId
     let streamId = '';
     let buf = '';
     let event = 'message';
@@ -76,23 +79,20 @@ export async function* runGenAiAgentLoop(messages, instructions, signal, maxToke
         if (name === 'start') streamId = d.streamId || '';
         if (name === 'partial' && d.text) yield {type: 'text', content: d.text};
         if (name === 'tool_call') {
-            let input = {};
-            try { input = JSON.parse(d.argumentsJson || '{}'); } catch {}
-            pending.push({id: d.callId, name: d.tool});
-            yield {type: 'tool_start', id: d.callId, name: d.tool, input};
+            let toolInput = {};
+            try { toolInput = JSON.parse(d.argumentsJson || '{}'); } catch {}
+            yield {type: 'tool_start', id: d.callId, name: d.tool, input: toolInput};
         }
         if (name === 'approval_required') {
             yield {type: 'approval_required', streamId: d.streamId || streamId, callId: d.callId, name: d.tool, argumentsJson: d.argumentsJson};
         }
         if (name === 'tool_result') {
-            const i = pending.findIndex(p => p.name === d.tool);
-            const call = i >= 0 ? pending.splice(i, 1)[0] : null;
-            yield {type: 'tool_result', id: call?.id, result: d.ok ? (d.resultPreview || '') : {error: d.resultPreview || 'Tool failed'}};
+            yield {type: 'tool_result', id: d.callId, result: d.ok ? (d.resultPreview || '') : {error: d.resultPreview || 'Tool failed'}};
         }
         if (name === 'complete' && d.usage) {
             yield {type: 'usage', input: d.usage.inputTokens || 0, output: d.usage.outputTokens || 0};
         }
-        if (name === 'error') throw new Error(`Jahia GenAI: ${d.error || 'error'}`);
+        if (name === 'error') throw new Error(d.error || 'error');
     };
 
     while (true) {

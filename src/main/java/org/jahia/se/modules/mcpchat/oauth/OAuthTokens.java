@@ -1,7 +1,6 @@
-package org.jahia.se.modules.mcpchat.servlet;
+package org.jahia.se.modules.mcpchat.oauth;
 
 import org.jahia.se.modules.mcpchat.config.McpServer;
-import org.jahia.se.modules.mcpchat.oauth.OAuthDiscovery;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -22,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * The token endpoint comes from the configuration, or from {@link OAuthDiscovery}.
  * Thread-safe; two concurrent misses may both fetch a token, which is harmless.
  */
-final class OAuthTokens {
+public final class OAuthTokens {
 
     private static final long EARLY_REFRESH_MS = 30_000;
 
@@ -39,7 +38,7 @@ final class OAuthTokens {
     private final HttpClient client;
     private final Map<String, Cached> tokens = new ConcurrentHashMap<>();
 
-    OAuthTokens(HttpClient client) {
+    public OAuthTokens(HttpClient client) {
         this.client = client;
     }
 
@@ -48,7 +47,7 @@ final class OAuthTokens {
      * @return a valid access token
      * @throws IOException when discovery or the token request fails
      */
-    String get(McpServer.Snapshot server) throws IOException, InterruptedException {
+    public String get(McpServer.Snapshot server) throws IOException, InterruptedException {
         String key = key(server);
         Cached cached = tokens.get(key);
         if (cached != null && System.currentTimeMillis() < cached.expiresAt) {
@@ -85,7 +84,7 @@ final class OAuthTokens {
     }
 
     /** Drops the cached token, after the server refused it. */
-    void invalidate(McpServer.Snapshot server) {
+    public void invalidate(McpServer.Snapshot server) {
         tokens.remove(key(server));
     }
 

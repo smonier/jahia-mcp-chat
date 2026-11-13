@@ -1,5 +1,6 @@
-import React, {useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
+import {Banner, Button, Chip, Close, Input, Paper, Typography, Upload} from '@jahia/moonstone';
 import styles from './SkillsManager.module.css';
 
 export function SkillsManager({skills, onAdd, onRemove}) {
@@ -7,6 +8,7 @@ export function SkillsManager({skills, onAdd, onRemove}) {
     const [githubUrl, setGithubUrl] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const fileRef = useRef(null);
 
     const handleFileUpload = e => {
         Array.from(e.target.files).forEach(file => {
@@ -35,44 +37,48 @@ export function SkillsManager({skills, onAdd, onRemove}) {
     };
 
     return (
-        <div className={styles.root}>
-            <h4 className={styles.title}>{t('skills.title')}</h4>
+        <Paper className={styles.card}>
+            <Typography variant="subheading" weight="bold" component="h3">{t('skills.title')}</Typography>
 
-            <div className={styles.actions}>
-                <label className={styles.uploadBtn}>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
-                        <path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/>
-                    </svg>
-                    {t('skills.upload')}
-                    <input type="file" accept=".md,.txt" multiple onChange={handleFileUpload} style={{display: 'none'}} />
-                </label>
-
-                <div className={styles.githubRow}>
-                    <input
-                        className={styles.input}
-                        type="url"
-                        value={githubUrl}
-                        onChange={e => setGithubUrl(e.target.value)}
-                        placeholder={t('skills.githubPlaceholder')}
-                        onKeyDown={e => e.key === 'Enter' && handlePull()}
-                    />
-                    <button className={styles.pullBtn} onClick={handlePull} disabled={loading || !githubUrl.trim()}>
-                        {loading ? '...' : t('skills.pull')}
-                    </button>
-                </div>
-                {error && <p className={styles.error}>{error}</p>}
+            <div className={styles.row}>
+                <input ref={fileRef} type="file" accept=".md,.txt" multiple className={styles.fileInput}
+                       tabIndex={-1} aria-hidden="true" onChange={handleFileUpload}/>
+                <Button variant="outlined" icon={<Upload/>} label={t('skills.upload')} onClick={() => fileRef.current?.click()}/>
             </div>
 
-            {skills.length > 0 && (
-                <div className={styles.chips}>
-                    {skills.map(s => (
-                        <span key={s.name} className={styles.chip}>
-                            <span className={styles.chipName} title={s.url || s.name}>{s.name}</span>
-                            <button className={styles.chipRemove} onClick={() => onRemove(s.name)} aria-label={t('skills.remove', {name: s.name})}>×</button>
-                        </span>
-                    ))}
+            <div className={styles.row}>
+                <div className={styles.url}>
+                    <Input value={githubUrl}
+                           placeholder={t('skills.githubPlaceholder')}
+                           aria-label={t('skills.githubPlaceholder')}
+                           onChange={e => setGithubUrl(e.target.value)}
+                           onKeyDown={e => e.key === 'Enter' && handlePull()}/>
+                </div>
+                <Button label={loading ? '...' : t('skills.pull')}
+                        isDisabled={loading || !githubUrl.trim()}
+                        onClick={handlePull}/>
+            </div>
+
+            {error && (
+                <div className={styles.banner}>
+                    <Banner variant="danger" title={t('skills.pullFailed')}>
+                        <Typography>{error}</Typography>
+                    </Banner>
                 </div>
             )}
-        </div>
+
+            {skills.length > 0 && (
+                <ul className={styles.chips}>
+                    {skills.map(s => (
+                        <li key={s.name} className={styles.skill}>
+                            <span title={s.url || s.name}><Chip label={s.name}/></span>
+                            <Button variant="ghost" size="small" icon={<Close/>}
+                                    aria-label={t('skills.remove', {name: s.name})}
+                                    onClick={() => onRemove(s.name)}/>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </Paper>
     );
 }

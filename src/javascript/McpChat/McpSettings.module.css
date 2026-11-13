@@ -1,161 +1,69 @@
+/* Layout only: components, colours and type come from Moonstone */
 .panel {
-    background: #fafafa;
-    border-bottom: 1px solid #e4e4e4;
-    flex-shrink: 0;
-}
-
-.body {
-    padding: 14px 16px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    max-height: 40vh;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: #e4e4e4 transparent;
+    gap: var(--moon-spacing-medium, 16px);
+    padding: var(--moon-spacing-medium, 16px);
+    min-width: 0;
+    contain: inline-size;
 }
 
-.section {
+/* Paper + Paper adds a margin-top that doubles the gap (SkillsManager's Paper included) */
+.panel > * {
+    margin-top: 0 !important;
+}
+
+.card {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-}
-
-.sectionTitle {
-    margin: 0;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: #7a7f88;
+    gap: var(--moon-spacing-small, 8px);
+    min-width: 0;
 }
 
 .field {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--moon-spacing-nano, 4px);
+    min-width: 0;
 }
 
-.fieldLabel {
-    font-size: 12px;
-    color: #5a6875;
-    font-weight: 500;
-}
-
-.input {
-    background: #ffffff;
-    color: #131c21;
-    border: 1px solid #d8dde1;
-    border-radius: 4px;
-    padding: 6px 10px;
-    font-size: 12px;
-    font-family: inherit;
-    outline: none;
-    transition: border-color 0.15s;
+.dropdown {
     width: 100%;
-    box-sizing: border-box;
 }
-
-.input:focus {
-    border-color: #0072b1;
-    box-shadow: 0 0 0 2px rgba(0, 114, 177, 0.1);
-}
-
-.input::placeholder { color: #aeb1b7; }
-
-.select {
-    background: #ffffff;
-    color: #131c21;
-    border: 1px solid #d8dde1;
-    border-radius: 4px;
-    padding: 6px 10px;
-    font-size: 12px;
-    font-family: inherit;
-    outline: none;
-    width: 100%;
-    box-sizing: border-box;
-    cursor: pointer;
-}
-
-.select:focus { border-color: #0072b1; }
 
 .serverList {
-    list-style: none;
-    margin: 0;
-    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--moon-spacing-small, 8px);
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .serverRow {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    border: 1px solid #e0e2e5;
-    border-radius: 4px;
+    flex-wrap: wrap;
+    gap: var(--moon-spacing-small, 8px);
+    padding: var(--moon-spacing-small, 8px) 0;
+    border-bottom: 1px solid var(--color-gray_light40, #dfe3e8);
+}
+
+.serverRow:last-child {
+    border-bottom: none;
 }
 
 .serverText {
     display: flex;
     flex-direction: column;
-    flex: 1;
+    flex: 1 1 160px;
     min-width: 0;
 }
 
-.serverLabel {
-    font-size: 13px;
-    font-weight: 600;
-    color: #131c21;
+.muted {
+    color: var(--color-gray_dark, #293136);
 }
 
-.serverMeta {
-    font-size: 11px;
-    color: #5c6670;
-}
-
-.statusDot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+.banner > * {
     flex-shrink: 0;
-    background: #aeb1b7;
-}
-
-.status_connected { background: #2e7d32; }
-.status_signInRequired { background: #c77700; }
-.status_unavailable { background: #c62828; }
-
-.serverBtn,
-.serverBtnSecondary {
-    font-size: 12px;
-    padding: 4px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.serverBtn {
-    border: 1px solid #0072b1;
-    background: #0072b1;
-    color: #fff;
-}
-
-.serverBtnSecondary {
-    border: 1px solid #c4c8cd;
-    background: #fff;
-    color: #131c21;
-}
-
-.serverBtn:disabled,
-.serverBtnSecondary:disabled {
-    opacity: 0.6;
-    cursor: default;
-}
-
-.serverError {
-    margin: 6px 0 0;
-    font-size: 12px;
-    color: #c62828;
 }

@@ -5,10 +5,9 @@ const ctx = () => window.contextJsParameters?.contextPath || '';
 const SETTINGS_API = () => `${ctx()}/modules/jahia-mcp-chat/settings`;
 const STORAGE_KEY = 'jahia-mcp-chat-settings';
 
-// Per-user preferences only — API keys, tokens and MCP endpoint come from OSGi config
+// Per-user preferences only: models and keys belong to genai-connector
 const DEFAULTS = {
-    llmProvider: '',      // empty = use OSGi default
-    selectedModel: '',    // empty = use OSGi default
+    tier: '',             // empty = the module's DEFAULT_TIER
     maxTokens: 0,         // 0 = use OSGi default
     skills: []
 };

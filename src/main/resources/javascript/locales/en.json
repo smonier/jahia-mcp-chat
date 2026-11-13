@@ -5,29 +5,32 @@
         },
         "panel": {
             "title": "MCP Chat",
-            "empty": "Ask me anything about your Jahia site. I can manage content, pages, and more using the MCP server.",
-            "configHint": "Configure your API key in",
-            "configLink": "settings",
+            "empty": "Ask me anything. I can manage the content, pages and settings of your Jahia site, and use the connected services.",
             "clear": "Clear conversation",
             "close": "Close panel",
-            "messages": "Chat messages"
+            "messages": "Chat messages",
+            "noConnector": "The chat needs the genai-connector module: ask your administrator to install it and configure a model.",
+            "noTier": "genai-connector has no model able to run the assistant: ask your administrator to configure a model tier.",
+            "resize": "Resize the chat (drag, or arrow keys)",
+            "tabs": {
+                "chat": "Chat",
+                "settings": "Settings"
+            },
+            "notReady": "The assistant is not available"
         },
         "input": {
             "placeholder": "Ask anything… (Enter to send, Shift+Enter for new line)",
             "label": "Message input",
             "send": "Send",
-            "stop": "Stop"
+            "stop": "Stop",
+            "attach": "Attach",
+            "removeAttachment": "Remove {{name}}"
         },
         "settings": {
             "title": "Settings",
             "close": "Close settings",
-            "llm": "LLM Provider",
-            "provider": "Provider",
-            "model": "Model",
-            "apiKey": "API Key",
-            "apiKeyPlaceholder": "sk-ant-... or sk-...",
+            "llm": "Model",
             "maxTokens": "Max output tokens",
-            "noProviders": "No LLM providers configured. Add API keys in the OSGi configuration.",
             "mcpServers": "MCP servers",
             "noMcpServers": "No MCP server is configured for this site.",
             "connect": "Connect",
@@ -40,12 +43,16 @@
                 "signInRequired": "Not connected - sign in required",
                 "unavailable": "Unavailable"
             },
-            "genaiNote": "Jahia GenAI runs the conversation on the server with the Jahia tools only: remote MCP servers and images are not available with it. Until Jahia/genai-connector#15 is fixed, content.create and content.update are left out (their schema is refused by the provider)."
-        },
-        "modelSelector": {
-            "label": "Model",
-            "provider": "Provider",
-            "model": "Model"
+            "tier": "Model tier",
+            "maxTokensDefault": "Tier default",
+            "tiers": {
+                "advanced": "Advanced",
+                "balanced": "Balanced",
+                "lite": "Lite"
+            },
+            "popupBlocked": "The browser blocked the sign-in window. Allow pop-ups for this site.",
+            "signInFailed": "The sign-in did not complete",
+            "maxTokensCeiling": "Up to {{count}}"
         },
         "skills": {
             "title": "Skills",
@@ -53,13 +60,23 @@
             "pull": "Pull",
             "githubLabel": "GitHub raw URL",
             "githubPlaceholder": "https://raw.githubusercontent.com/.../SKILL.md",
-            "remove": "Remove {{name}}"
+            "remove": "Remove {{name}}",
+            "pullFailed": "The skill could not be loaded"
         },
         "approval": {
             "title": "Tool approval",
             "question": "The assistant wants to run {{tool}}. Allow it?",
             "approve": "Allow",
             "deny": "Deny"
+        },
+        "tool": {
+            "done": "Done",
+            "failed": "Failed",
+            "details": "Show or hide the details"
+        },
+        "tokens": {
+            "summary": "{{input}} in, {{output}} out, {{total}} tokens",
+            "detail": "{{input}} input and {{output}} output tokens"
         }
     }
 }

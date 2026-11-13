@@ -5,29 +5,32 @@
         },
         "panel": {
             "title": "Jahia MCP Chat",
-            "empty": "Posez-moi des questions sur votre site Jahia. Je peux gérer le contenu, les pages et plus encore.",
-            "configHint": "Renseignez votre clé API dans les ",
-            "configLink": "paramètres",
+            "empty": "Posez-moi vos questions. Je peux gérer le contenu, les pages et les réglages de votre site Jahia, et utiliser les services connectés.",
             "clear": "Effacer la conversation",
             "close": "Fermer le panneau",
-            "messages": "Messages du chat"
+            "messages": "Messages du chat",
+            "noConnector": "Le chat a besoin du module genai-connector : demandez à votre administrateur de l'installer et de configurer un modèle.",
+            "noTier": "genai-connector n'a aucun modèle capable de faire tourner l'assistant : demandez à votre administrateur de configurer un niveau de modèle.",
+            "resize": "Redimensionner le chat (glisser, ou flèches du clavier)",
+            "tabs": {
+                "chat": "Chat",
+                "settings": "Paramètres"
+            },
+            "notReady": "L'assistant n'est pas disponible"
         },
         "input": {
             "placeholder": "Posez votre question… (Entrée pour envoyer, Maj+Entrée pour saut de ligne)",
             "label": "Saisie du message",
             "send": "Envoyer",
-            "stop": "Arrêter"
+            "stop": "Arrêter",
+            "attach": "Joindre",
+            "removeAttachment": "Retirer {{name}}"
         },
         "settings": {
             "title": "Paramètres",
             "close": "Fermer les paramètres",
-            "llm": "Fournisseur LLM",
-            "provider": "Fournisseur",
-            "model": "Modèle",
-            "apiKey": "Clé API",
-            "apiKeyPlaceholder": "sk-...",
+            "llm": "Modèle",
             "maxTokens": "Tokens de sortie max",
-            "noProviders": "Aucun fournisseur LLM configuré. Ajoutez des clés API dans la configuration OSGi.",
             "mcpServers": "Serveurs MCP",
             "noMcpServers": "Aucun serveur MCP n'est configuré pour ce site.",
             "connect": "Se connecter",
@@ -40,12 +43,16 @@
                 "signInRequired": "Non connecté - connexion requise",
                 "unavailable": "Indisponible"
             },
-            "genaiNote": "Jahia GenAI mène la conversation sur le serveur avec les seuls outils Jahia : les serveurs MCP distants et les images ne sont pas disponibles. Tant que Jahia/genai-connector#15 n'est pas corrigé, content.create et content.update sont exclus (le fournisseur refuse leur schéma)."
-        },
-        "modelSelector": {
-            "label": "Modèle",
-            "provider": "Fournisseur",
-            "model": "Modèle"
+            "tier": "Niveau de modèle",
+            "maxTokensDefault": "Valeur du niveau",
+            "tiers": {
+                "advanced": "Avancé",
+                "balanced": "Équilibré",
+                "lite": "Léger"
+            },
+            "popupBlocked": "Le navigateur a bloqué la fenêtre de connexion. Autorisez les fenêtres surgissantes pour ce site.",
+            "signInFailed": "La connexion n'a pas abouti",
+            "maxTokensCeiling": "Jusqu'à {{count}}"
         },
         "skills": {
             "title": "Compétences",
@@ -53,13 +60,23 @@
             "pull": "Récupérer",
             "githubLabel": "URL GitHub brute",
             "githubPlaceholder": "https://raw.githubusercontent.com/.../SKILL.md",
-            "remove": "Supprimer la compétence {{name}}"
+            "remove": "Supprimer la compétence {{name}}",
+            "pullFailed": "La compétence n'a pas pu être chargée"
         },
         "approval": {
             "title": "Validation d'outil",
             "question": "L'assistant veut exécuter {{tool}}. L'autoriser ?",
             "approve": "Autoriser",
             "deny": "Refuser"
+        },
+        "tool": {
+            "done": "Terminé",
+            "failed": "Échec",
+            "details": "Afficher ou masquer le détail"
+        },
+        "tokens": {
+            "summary": "{{input}} en entrée, {{output}} en sortie, {{total}} tokens",
+            "detail": "{{input}} tokens en entrée et {{output}} en sortie"
         }
     }
 }

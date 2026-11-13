@@ -1,133 +1,93 @@
 import React, {useState} from 'react';
+import {useTranslation} from 'react-i18next';
+import {Button, Chip, ChevronDown, ChevronUp, File, Image, Loader, Typography} from '@jahia/moonstone';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import styles from './ChatMessage.module.css';
 
-function summarizeInput(name, input) {
-    if (!input || Object.keys(input).length === 0) return null;
-    if (name === 'mcp_call') {
-        const params = input.params && Object.keys(input.params).length > 0
-            ? ' ' + Object.entries(input.params).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', ')
-            : '';
-        return `${input.tool || '?'}${params}`;
-    }
-    return Object.entries(input).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', ') || null;
+const PREVIEW = 160;
+
+function summarizeInput(input) {
+    if (!input || Object.keys(input).length === 0) return '';
+    return Object.entries(input).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(', ');
 }
 
-function summarizeResult(name, result) {
-    if (!result) return null;
-    if (result.error) return `Error: ${result.error}`;
-
-    // tools_list
-    if (result.tools && Array.isArray(result.tools)) {
-        return `${result.tools.length} tools available: ${result.tools.map(t => t.name).join(', ')}`;
-    }
-
-    // site.list
-    const text = extractText(result);
-    if (text) {
-        try {
-            const parsed = JSON.parse(text);
-            if (parsed.sites) return `${parsed.count || parsed.sites.length} sites: ${parsed.sites.map(s => s.siteKey).join(', ')}`;
-            if (parsed.definitions) return `${parsed.definitions.length} content types found`;
-            if (parsed.nodes) return `${parsed.nodes.length} nodes found`;
-            if (parsed.node) return `Node: ${parsed.node.path || parsed.node.name || 'ok'}`;
-            if (parsed.count !== undefined) return `${parsed.count} results`;
-            if (typeof parsed === 'object') {
-                const keys = Object.keys(parsed);
-                if (keys.length <= 3) return keys.map(k => `${k}: ${JSON.stringify(parsed[k])}`).join(', ');
-            }
-        } catch {}
-        return text.length > 120 ? text.slice(0, 120) + '…' : text;
-    }
-
-    if (typeof result === 'object') {
-        const keys = Object.keys(result);
-        if (keys.length === 0) return 'Done';
-        if (keys.length <= 3) return keys.map(k => `${k}: ${JSON.stringify(result[k])}`).join(', ');
-        return `${keys.length} fields returned`;
-    }
-    return String(result).slice(0, 120);
-}
-
-function extractText(result) {
+// Tool results arrive as the connector's JSON preview (a string), or {error}
+function resultText(result) {
+    if (result === undefined || result === null) return '';
     if (typeof result === 'string') return result;
-    if (result?.content) {
-        const items = Array.isArray(result.content) ? result.content : [result.content];
-        const texts = items.filter(c => c?.type === 'text' || typeof c === 'string').map(c => c?.text || c);
-        if (texts.length) return texts.join('\n');
+    if (result.error) return String(result.error);
+    return JSON.stringify(result);
+}
+
+function prettify(text) {
+    try {
+        return JSON.stringify(JSON.parse(text), null, 2);
+    } catch {
+        return text;
     }
-    return null;
 }
 
 function ToolCallBlock({toolCall}) {
+    const {t} = useTranslation('jahia-mcp-chat');
     const [expanded, setExpanded] = useState(false);
-    const hasResult = toolCall.result !== undefined;
-    const inputSummary = summarizeInput(toolCall.name, toolCall.input);
-    const resultSummary = hasResult ? summarizeResult(toolCall.name, toolCall.result) : null;
-    const hasDetail = toolCall.result && !toolCall.result?.error;
+    const done = toolCall.result !== undefined;
+    const failed = done && Boolean(toolCall.result?.error);
+    const text = resultText(toolCall.result);
+    const args = summarizeInput(toolCall.input);
 
     return (
         <div className={styles.toolCall}>
-            <button
-                className={styles.toolCallHeader}
-                onClick={() => hasDetail && setExpanded(e => !e)}
-                aria-expanded={expanded}
-                disabled={!hasDetail}
-                style={{cursor: hasDetail ? 'pointer' : 'default'}}
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="11" height="11" fill="currentColor" className={styles.toolCallIcon} aria-hidden="true">
-                    <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
-                </svg>
-                <span className={styles.toolCallName}>
-                    {toolCall.name === 'mcp_call' ? (toolCall.input?.tool || 'mcp_call') : toolCall.name}
-                </span>
-                {inputSummary && toolCall.name !== 'mcp_call' && (
-                    <span className={styles.toolCallArgs}>{inputSummary}</span>
+            <div className={styles.toolCallHeader}>
+                <Typography variant="caption" weight="semiBold" className={styles.toolCallName}>{toolCall.name}</Typography>
+                {done
+                    ? <Chip color={failed ? 'danger' : 'success'} label={t(failed ? 'tool.failed' : 'tool.done')}/>
+                    : <span className={styles.running}><Loader size="small"/></span>}
+                {text && (
+                    <Button variant="ghost"
+                            size="small"
+                            icon={expanded ? <ChevronUp/> : <ChevronDown/>}
+                            aria-expanded={expanded}
+                            aria-label={t('tool.details')}
+                            title={t('tool.details')}
+                            onClick={() => setExpanded(e => !e)}/>
                 )}
-                {hasResult
-                    ? <span className={`${styles.toolCallStatus} ${styles.done}`}>
-                        {toolCall.result?.error ? '✗' : '✓'}
-                    </span>
-                    : <span className={`${styles.toolCallStatus} ${styles.running}`}>
-                        <span className={styles.spinner} aria-hidden="true" />
-                    </span>
-                }
-                {hasDetail && (
-                    <span className={styles.toolCallChevron} aria-hidden="true">{expanded ? '▴' : '▾'}</span>
-                )}
-            </button>
-            {resultSummary && (
-                <div className={`${styles.toolCallSummary} ${toolCall.result?.error ? styles.toolCallError : ''}`}>
-                    {resultSummary}
-                </div>
+            </div>
+            {args && <Typography variant="caption" className={styles.toolCallArgs}>{args}</Typography>}
+            {text && !expanded && (
+                <Typography variant="caption" className={failed ? styles.toolCallError : styles.toolCallSummary}>
+                    {text.length > PREVIEW ? `${text.slice(0, PREVIEW)}...` : text}
+                </Typography>
             )}
-            {expanded && hasDetail && (
-                <pre className={styles.toolCallDetail}>
-                    {JSON.stringify(toolCall.result, null, 2)}
-                </pre>
-            )}
+            {expanded && <pre className={styles.toolCallDetail}>{prettify(text)}</pre>}
         </div>
     );
 }
 
-function MessageText({text, streaming}) {
+// Answers are model output: Markdown rendered as React elements, raw HTML ignored (react-markdown's default),
+// unsafe link protocols dropped by its URL transform, links opened in a new tab
+const MARKDOWN_COMPONENTS = {
+    a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer"/>
+};
+
+function Markdown({text}) {
     return (
-        <div className={styles.bubble}>
-            {text}
-            {streaming && <span className={styles.cursor} aria-hidden="true" />}
+        <div className={styles.markdown}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{text}</ReactMarkdown>
         </div>
     );
 }
 
 function TokenBadge({usage}) {
+    const {t} = useTranslation('jahia-mcp-chat');
     if (!usage) return null;
     const total = (usage.input || 0) + (usage.output || 0);
-    const fmt = n => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+    const fmt = n => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`);
     return (
-        <div className={styles.tokenBadge} title={`${usage.input} input + ${usage.output} output tokens`}>
-            <span className={styles.tokenIcon} aria-hidden="true">◈</span>
-            {fmt(usage.input)}↑ {fmt(usage.output)}↓
-            <span className={styles.tokenTotal}> {fmt(total)}</span>
-        </div>
+        <Typography variant="caption" className={styles.tokens}
+                    title={t('tokens.detail', {input: usage.input, output: usage.output})}>
+            {t('tokens.summary', {input: fmt(usage.input), output: fmt(usage.output), total: fmt(total)})}
+        </Typography>
     );
 }
 
@@ -137,36 +97,30 @@ export function ChatMessage({message}) {
 
     return (
         <div className={`${styles.message} ${isUser ? styles.user : styles.assistant}`}>
-            {!isUser && (
-                <div className={styles.avatar} aria-hidden="true">J</div>
-            )}
             <div className={styles.content}>
-                {message.toolCalls?.map((tc, i) => (
-                    <ToolCallBlock key={i} toolCall={tc} />
+                {message.toolCalls?.map(tc => (
+                    <ToolCallBlock key={tc.id || tc.name} toolCall={tc}/>
                 ))}
                 {message.content && (
-                    <MessageText text={message.content} streaming={message.streaming} />
+                    <div className={styles.bubble}>
+                        {isUser
+                            ? <Typography className={styles.text}>{message.content}</Typography>
+                            : <Markdown text={message.content}/>}
+                    </div>
                 )}
                 {message.attachments?.length > 0 && (
-                    <div className={styles.attachmentChips}>
+                    <div className={styles.attachments}>
                         {message.attachments.map((att, i) => (
-                            <span key={i} className={styles.attachmentChip} title={att.name}>
-                                <span aria-hidden="true">{att.kind === 'image' ? '🖼' : '📄'}</span>
-                                {att.name}
+                            <span key={`${att.name}-${i}`} title={att.name}>
+                                <Chip label={att.name} icon={att.kind === 'image' ? <Image/> : <File/>}/>
                             </span>
                         ))}
                     </div>
                 )}
                 {isEmpty && message.streaming && (
-                    <div className={styles.bubble}>
-                        <div className={styles.typingDots} aria-label="typing">
-                            <span /><span /><span />
-                        </div>
-                    </div>
+                    <div className={styles.bubble}><Loader size="small"/></div>
                 )}
-                {!message.streaming && message.usage && (
-                    <TokenBadge usage={message.usage} />
-                )}
+                {!message.streaming && <TokenBadge usage={message.usage}/>}
             </div>
         </div>
     );

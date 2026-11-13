@@ -256,7 +256,16 @@ public class UserOAuthService {
                 .header("Content-Type", "application/json").header("Accept", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body.toString())).build(), HttpResponse.BodyHandlers.ofString());
         if (res.statusCode() != 200 && res.statusCode() != 201) {
-            throw new IOException("client registration answered " + res.statusCode());
+            String reason = "";
+            try {
+                reason = new JSONObject(res.body()).optString("error_description", "");
+            } catch (JSONException ignored) {
+                // no JSON body: the status alone
+            }
+            throw new IOException("client registration answered " + res.statusCode()
+                    + (reason.isEmpty() ? "" : " (" + reason + ")")
+                    + ". Ask the server's operator to trust " + URI.create(redirectUri).getHost()
+                    + ", or register a client for " + redirectUri + " and set oauthClientId");
         }
         JSONObject reg = new JSONObject(res.body());
         JSONObject kept = new JSONObject().put("client_id", reg.getString("client_id"))
