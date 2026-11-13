@@ -4,10 +4,20 @@ All notable changes to Jahia MCP Chat. Format: [Keep a Changelog](https://keepac
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-13
+
 ### Added
 
+- End-to-end tests in `tests/` (Cypress 13, `@jahia/cypress`): the servlets' access rules and CSRF decisions, no
+  server URL or credential in the browser's configuration, servers per site, attachments; the drawer's docking,
+  Settings, Markdown answers, tool calls and approvals with genai-connector stubbed, and an axe WCAG 2.1 AA check.
 - `docs/mcp-servers.md`: how to add an MCP server (the factory configuration, from the console or as a file),
   every setting, examples per authentication, checks and troubleshooting. The README links to it.
+
+### Fixed
+
+- The Chat and Settings tab labels failed WCAG AA contrast (Moonstone's #00a0e3 selected, 2.9:1, and #7a7f88
+  unselected, 4.0:1): they use jContent's darker accent and dark grey.
 
 ## [1.0.1] - 2026-11-13
 
@@ -135,6 +145,7 @@ tools; genai-connector is optional.
 - Guests refused on every servlet; API keys and MCP credentials kept server-side; CORS and token exposure
   fixed; user-submitted MCP tokens never stored.
 
-[Unreleased]: https://github.com/smonier/jahia-mcp-chat/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/smonier/jahia-mcp-chat/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/smonier/jahia-mcp-chat/releases/tag/v1.0.2
 [1.0.1]: https://github.com/smonier/jahia-mcp-chat/releases/tag/v1.0.1
 [1.0.0]: https://github.com/smonier/jahia-mcp-chat/releases/tag/v1.0.0

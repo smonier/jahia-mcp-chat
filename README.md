@@ -213,6 +213,8 @@ curl -u root:<password> -X POST http://localhost:8080/modules/api/bundles \
   -F "bundle=@target/jahia-mcp-chat-<version>.jar" -F "start=true"
 ```
 
+End-to-end tests: [`tests/README.md`](tests/README.md) (Cypress, run against a Jahia with the module deployed).
+
 Never run `yarn dev` from an automated process: it is an interactive watcher. See [CHANGELOG.md](CHANGELOG.md)
 for the changes, and [`.agents/`](.agents/README.md) for the notes AI agents read before working on the module.
 

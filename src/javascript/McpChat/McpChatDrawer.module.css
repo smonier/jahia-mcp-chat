@@ -202,3 +202,13 @@
 .fileInput {
     display: none;
 }
+
+/* Moonstone's tab labels fail WCAG AA at 12 px: #7a7f88 (4.0:1) unselected, #00a0e3 (2.9:1) selected. Darker
+   tokens of the same colours, the selected underline untouched. */
+.tabs :global(.moonstone-tabItem) :global(.moonstone-typography) {
+    color: var(--color-gray_dark, #293136);
+}
+
+.tabs :global(.moonstone-tabItem_selected) :global(.moonstone-typography) {
+    color: var(--color-accent_dark, #007cb0);
+}

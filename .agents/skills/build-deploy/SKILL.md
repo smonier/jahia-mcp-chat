@@ -34,4 +34,6 @@ description: Build jahia-mcp-chat, deploy it to a local Jahia and check it works
 7. A remote OAuth server: `curl -u root:<password> -D - ".../modules/jahia-mcp-chat/oauth/start?server=<name>&site=<key>"`
    must redirect to the server's authorization endpoint (not `/error.html`). Failures are logged by
    `UserOAuthService` and `RemoteToolBridge`: `docker logs --since 10m <container> | grep -E "UserOAuthService|RemoteToolBridge"`.
-8. Update `CHANGELOG.md` and the README in the same commit.
+8. Run the end-to-end suite (`tests/README.md`): `cd tests && yarn install && JAHIA_URL=... SUPER_USER_PASSWORD=...
+   CYPRESS_MC_TEMPLATE_SET=<a template set of the instance> yarn e2e:ci`. All 13 tests must pass.
+9. Update `CHANGELOG.md` and the README in the same commit.
