@@ -1,15 +1,24 @@
 // Jahia GenAI connector (genai-connector module): the agent loop runs server-side with the Jahia MCP tools
 // in-process, under the user's own session. Remote MCP servers and images are not available in this mode.
 
+import i18next from 'i18next';
+
 export const GENAI_PROVIDER = 'genai';
 
 const ctx = () => window.contextJsParameters?.contextPath || '';
 const HEADERS = {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'};
 
-// {available, provider, model} or null when the connector is missing or its agent cannot run
-export async function fetchGenAiStatus() {
+// The status and the agent run take the key of the site, and answer 403 to a user without the permission
+// genaiAccess on that site (Jahia/genai-connector#46). The confirm endpoint takes no site.
+const onSite = (path, siteKey) => `${ctx()}${path}?site=${encodeURIComponent(siteKey)}`;
+
+// {provider, model}, {denied: true} when the user lacks genaiAccess on the site, or null when there is no site,
+// the connector is missing or its agent cannot run
+export async function fetchGenAiStatus(siteKey) {
+    if (!siteKey) return null;
     try {
-        const res = await fetch(`${ctx()}/modules/genai/status`, {credentials: 'same-origin', cache: 'no-store'});
+        const res = await fetch(onSite('/modules/genai/status', siteKey), {credentials: 'same-origin', cache: 'no-store'});
+        if (res.status === 403) return {denied: true};
         if (!res.ok || res.redirected) return null;
         const json = await res.json();
         return json.available && json.agentAvailable ? {provider: json.provider || '', model: json.model || ''} : null;
@@ -44,12 +53,12 @@ export function genAiAllowedTools(mcpTools, servers, separator) {
     return names.length > 0 ? names : undefined;
 }
 
-export async function* runGenAiAgentLoop(messages, instructions, signal, maxTokens, locale, allowedTools) {
+export async function* runGenAiAgentLoop(siteKey, messages, instructions, signal, maxTokens, locale, allowedTools) {
     const turns = messages.map(m => ({role: m.role, text: historyText(m.content)})).filter(t => t.text);
     const last = turns.pop();
     if (!last || last.role !== 'user') throw new Error('Nothing to send');
 
-    const res = await fetch(`${ctx()}/modules/genai/agent/stream`, {
+    const res = await fetch(onSite('/modules/genai/agent/stream', siteKey), {
         method: 'POST', credentials: 'same-origin', headers: HEADERS, signal,
         body: JSON.stringify({
             input: last.text,
@@ -60,6 +69,7 @@ export async function* runGenAiAgentLoop(messages, instructions, signal, maxToke
             ...(allowedTools ? {allowedTools} : {})
         })
     });
+    if (res.status === 403) throw new Error(i18next.t('jahia-mcp-chat:genai.accessDenied'));
     if (!res.ok) throw new Error(`Jahia GenAI ${res.status}: ${await res.text()}`);
 
     const reader = res.body.getReader();

@@ -78,6 +78,12 @@ provider and model of the connector's own configuration. With it selected:
   schema and the provider refuses the request ([Jahia/genai-connector#15](https://github.com/Jahia/genai-connector/issues/15)).
   The chat sends `allowedTools` without the Jahia tools whose schema uses `$ref`.
 
+The chat sends the key of the current site with the status and each agent run, such as
+`/modules/genai/status?site=acme`. The connector opens these endpoints only to a user who holds the permission
+`genaiAccess` on that site ([Jahia/genai-connector#46](https://github.com/Jahia/genai-connector/pull/46)), which it
+grants to the roles `editor`, `editor-in-chief` and `site-administrator`. A user without it does not get the
+Jahia GenAI provider, and the chat settings say why.
+
 Set `DEFAULT_PROVIDER=genai` to make it the default.
 
 ---

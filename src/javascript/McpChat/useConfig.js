@@ -34,13 +34,14 @@ export function useConfig(siteKey) {
                 })
                 .then(async data => {
                     if (!data) return;
-                    // The GenAI connector is one more provider when it is installed with a working agent
-                    const genai = await fetchGenAiStatus();
+                    // The GenAI connector is one more provider when it is installed with a working agent that the user
+                    // may use on this site
+                    const genai = await fetchGenAiStatus(siteKey);
                     setConfig({
                         ...EMPTY_CONFIG,
                         ...data,
                         genai,
-                        availableProviders: genai
+                        availableProviders: genai && !genai.denied
                             ? [...(data.availableProviders || []), GENAI_PROVIDER]
                             : (data.availableProviders || [])
                     });

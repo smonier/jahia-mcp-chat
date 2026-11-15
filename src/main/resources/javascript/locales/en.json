@@ -60,6 +60,9 @@
             "question": "The assistant wants to run {{tool}}. Allow it?",
             "approve": "Allow",
             "deny": "Deny"
+        },
+        "genai": {
+            "accessDenied": "You cannot use Jahia GenAI on this site: your roles here do not give the permission genaiAccess. Ask an administrator of the site."
         }
     }
 }

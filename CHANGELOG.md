@@ -33,6 +33,9 @@ All notable changes to Jahia MCP Chat. Format: [Keep a Changelog](https://keepac
 
 ### Changed
 
+- Jahia GenAI: the status and the agent run send the key of the current site as `?site=<key>`, as
+  Jahia/genai-connector#46 requires. A user without the permission `genaiAccess` on the site does not get the
+  provider; the settings and a run refused with HTTP 403 show a message that names the permission.
 - `MCP_ENDPOINT` and `MCP_JWT_TOKEN` are removed from `org.jahia.se.modules.mcpchat.cfg`: MCP servers have
   their own files.
 - `/config` takes `?site=<key>` and returns the site's MCP servers, without credentials or remote URLs.

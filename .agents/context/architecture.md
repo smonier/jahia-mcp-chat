@@ -12,8 +12,10 @@
   `postMessage` from the callback page, `signOut()`.
 - `useMcpChat.js` runs the agentic loop through `/llm-proxy` with two tools: `mcp_call {tool, params}` and
   `upload_attachment` (uses the first local server's `media.upload.*` tools).
-- `genaiAgent.js`: the Jahia GenAI provider. `fetchGenAiStatus()` (`/modules/genai/status`) adds `genai` to the
-  providers; `runGenAiAgentLoop()` posts to `/modules/genai/agent/stream` (input, instructions, text history) and
+- `genaiAgent.js`: the Jahia GenAI provider. `fetchGenAiStatus(siteKey)` (`/modules/genai/status?site=<key>`)
+  adds `genai` to the providers, or answers `{denied: true}` on a 403 (no `genaiAccess` on the site), which the
+  settings show; `runGenAiAgentLoop(siteKey, ...)` posts to `/modules/genai/agent/stream?site=<key>` (input,
+  instructions, text history), turns a 403 into the `genai.accessDenied` label, and
   maps its SSE frames (`start`, `partial`, `tool_call`, `approval_required`, `tool_result`, `complete`, `error`)
   to the chat's events; `tool_result` frames carry no `callId`, so results are matched to calls by tool name in
   order. `confirmToolCall()` answers `/modules/genai/agent/confirm`.

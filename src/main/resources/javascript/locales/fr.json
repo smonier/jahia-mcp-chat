@@ -60,6 +60,9 @@
             "question": "L'assistant veut exécuter {{tool}}. L'autoriser ?",
             "approve": "Autoriser",
             "deny": "Refuser"
+        },
+        "genai": {
+            "accessDenied": "Vous ne pouvez pas utiliser Jahia GenAI sur ce site : vos rôles ici ne donnent pas la permission genaiAccess. Demandez-la à un administrateur du site."
         }
     }
 }

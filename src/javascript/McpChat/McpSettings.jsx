@@ -134,6 +134,9 @@ export function McpSettings({settings, config, onUpdate, onAddSkill, onRemoveSki
                 <section className={styles.section}>
                     <h4 className={styles.sectionTitle}>{t('settings.llm')}</h4>
 
+                    {config?.genai?.denied && (
+                        <p className={styles.noProviders}>{t('genai.accessDenied')}</p>
+                    )}
                     {availableProviders.length === 0 ? (
                         <p className={styles.noProviders}>{t('settings.noProviders')}</p>
                     ) : (

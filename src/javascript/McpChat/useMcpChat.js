@@ -676,7 +676,7 @@ export function useMcpChat(settings, mcpTools, siteKey, osgiConfig = {}) {
 
         try {
             const stream = useGenAi
-                ? runGenAiAgentLoop(trimmedHistory, buildGenAiInstructions(settings.skills || [], siteKey, osgiConfig.systemPromptAppendix || ''),
+                ? runGenAiAgentLoop(siteKey, trimmedHistory, buildGenAiInstructions(settings.skills || [], siteKey, osgiConfig.systemPromptAppendix || ''),
                     controller.signal, maxTokens, document.documentElement.lang || undefined,
                     genAiAllowedTools(mcpTools, servers, TOOL_SEPARATOR))
                 : useOpenAICompat
